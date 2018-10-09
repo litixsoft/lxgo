@@ -1,0 +1,54 @@
+version: '2'
+vars:
+  GOLANG_VERSION: '1.11'
+  MONGO_VERSION: '4.0'
+  SERVICE: 'lxgo'
+  COMPOSE_TEST: 'build/compose.test.yaml'
+  VERSION: {sh: git describe --tags}
+
+tasks:
+  test:
+    cmds:
+      - go test -cover -v ./...
+
+  test-docker:
+    cmds:
+      - docker pull golang:{{.GOLANG_VERSION}}
+      - docker pull mongo:{{.MONGO_VERSION}}
+      - docker-compose -f {{.COMPOSE_TEST}} down
+      - docker-compose -f {{.COMPOSE_TEST}} build
+      - docker-compose -f {{.COMPOSE_TEST}} run {{.SERVICE}}
+      - docker-compose -f {{.COMPOSE_TEST}} down
+      - docker image prune -f
+    env:
+      GOLANG_VERSION: "{{.GOLANG_VERSION}}"
+      MONGO_VERSION: "{{.MONGO_VERSION}}"
+
+  ## show version
+  version:
+    cmds:
+      - echo {{.VERSION}}
+
+  ## set new patch version (example: actual 0.2.1 after 0.2.2)
+  patch:
+    cmds:
+      - gitsem -m "Upgrade patch version to %s" patch
+
+  ## set new minor version (example: actual 0.2.1 after 0.3.0)
+  minor:
+    cmds:
+      - gitsem -m "Upgrade minor version to %s" minor
+
+  ## set new minor version (example: actual 0.2.1 after 0.3.0)
+  major:
+    cmds:
+      - gitsem -m "Upgrade major version to %s" major
+
+  mock:
+    cmds:
+      - mkdir -p crypt/mocks
+      - mockgen -destination=crypt/mocks/icrypt.go -package=lxCryptMocks github.com/litixsoft/lx-golib/crypt ICrypt
+      - mkdir -p audit/mocks
+      - mockgen -destination=audit/mocks/iaudit.go -package=lxAuditMocks github.com/litixsoft/lx-golib/audit IAudit
+      - mkdir -p schema/mocks
+      - mockgen -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks github.com/litixsoft/lx-golib/schema IJSONSchema

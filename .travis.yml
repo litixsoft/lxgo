@@ -1,0 +1,19 @@
+sudo: required
+
+services:
+- docker
+
+-language: go
+
+env:
+  - GOLANG_VERSION="1.11"
+  - MONGO_VERSION="4.0"
+
+before_install:
+  - docker pull golang:${GOLANG_VERSION}
+  - docker pull mongo:${MONGO_VERSION}
+
+script:
+  - docker-compose -f ./build/compose.test.yaml build
+  - docker-compose -f ./build/compose.test.yaml run lxgo
+  - docker-compose -f ./build/compose.test.yaml down
