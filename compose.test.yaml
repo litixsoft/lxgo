@@ -3,7 +3,7 @@ services:
   lxgo:
     image: golang:1.11
     volumes:
-      - ../:/root/app
+      - .:/root/app
     working_dir: /root/app
     environment:
       - DB_HOST=lxgo-mongodb
@@ -13,7 +13,7 @@ services:
       sh -c "go version
       && pwd
       && ls -la
-      && go test -v -cover ./..."
+      && go test -cover ./..."
   lxgo-mongodb:
     image: mongo:4.0
     command: mongod --smallfiles --logpath=/dev/null # --quiet

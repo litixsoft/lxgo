@@ -10,6 +10,6 @@ before_install:
   - docker pull mongo:4.0
 
 script:
-  - docker-compose -f ./build/compose.test.yaml build
-  - docker-compose -f ./build/compose.test.yaml run lxgo
-  - docker-compose -f ./build/compose.test.yaml down
+  - docker-compose -f ./compose.test.yaml build
+  - docker-compose -f ./compose.test.yaml run lxgo
+  - docker-compose -f ./compose.test.yaml down

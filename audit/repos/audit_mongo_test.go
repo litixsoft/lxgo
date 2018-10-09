@@ -83,7 +83,6 @@ func TestAuditMongo_SetupAudit(t *testing.T) {
 	// Db base, repo
 	db := lxDb.NewMongoDb(conn, TestDbName, AuditCollection)
 	repo := lxAuditRepos.NewAuditMongo(db, "TestService", "localhost:3101")
-	t.Log(repo)
 
 	t.Run("index before setup", func(t *testing.T) {
 		idx, err := conn.DB(TestDbName).C(AuditCollection).Indexes()
