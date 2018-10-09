@@ -10,8 +10,8 @@ env:
   - MONGO_VERSION="4.0"
 
 before_install:
-  - docker pull golang:${GOLANG_VERSION}
-  - docker pull mongo:${MONGO_VERSION}
+  - docker pull golang:1.11
+  - docker pull mongo:4.0
 
 script:
   - docker-compose -f ./build/compose.test.yaml build
