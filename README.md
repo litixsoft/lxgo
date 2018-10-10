@@ -5,7 +5,7 @@ Helper and mapper for go development
 
 ## Install
 
-    $ go get github.com:litixsoft/lxgo
+    $ go get github.com/litixsoft/lxgo
 
 ## Install develop dependencies
     
