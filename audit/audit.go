@@ -1,6 +1,7 @@
 package lxAudit
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -18,7 +19,7 @@ const (
 // IAudit, interface for audit repositories
 type IAudit interface {
 	SetupAudit() error
-	Log(action int, user, message, data interface{}) (<-chan bool, <-chan error)
+	Log(action int, user, message, data interface{}) chan bool
 }
 
 // AuditModel, model for audit entry
@@ -30,4 +31,20 @@ type AuditModel struct {
 	User        interface{} `json:"user"`
 	Message     interface{} `json:"msg"`
 	Data        interface{} `json:"data"`
+}
+
+func (am *AuditModel) ToJson() string {
+	jsonStr := fmt.Sprintf(`{
+"timestamp":{"$date":"%s"},"service_name":"%s","service_host":"%s","action":"%d","user":"%v","msg":"%v","data":"%v"
+}`,
+		time.Now().UTC().Format(time.RFC3339),
+		am.ServiceName,
+		am.ServiceHost,
+		am.Action,
+		am.User,
+		am.Message,
+		am.Data,
+	)
+
+	return jsonStr
 }

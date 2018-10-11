@@ -7,16 +7,21 @@ import (
 	"time"
 )
 
+type IAuditLogger interface {
+	Errorf(format string, args ...interface{})
+}
+
 // auditMongo, mongo repository
 type auditMongo struct {
 	serviceName string
 	serviceHost string
 	db          *lxDb.MongoDb
+	logger      IAuditLogger
 }
 
 // NewAuditMongo, return instance of auditMongo repository
-func NewAuditMongo(db *lxDb.MongoDb, serviceName, serviceHost string) lxAudit.IAudit {
-	return &auditMongo{db: db, serviceName: serviceName, serviceHost: serviceHost}
+func NewAuditMongo(db *lxDb.MongoDb, logger IAuditLogger, serviceName, serviceHost string) lxAudit.IAudit {
+	return &auditMongo{db: db, logger: logger, serviceName: serviceName, serviceHost: serviceHost}
 }
 
 // SetupAudit, set the indexes for mongoDb
@@ -32,10 +37,9 @@ func (repo *auditMongo) SetupAudit() error {
 }
 
 // Log, save log entry to mongoDb
-func (repo *auditMongo) Log(action int, user, message, data interface{}) (<-chan bool, <-chan error) {
+func (repo *auditMongo) Log(action int, user, message, data interface{}) chan bool {
 	// channel for done
 	done := make(chan bool, 1)
-	errs := make(chan error, 1)
 
 	go func() {
 		// Copy mongo session (thread safe) and close after function
@@ -55,15 +59,16 @@ func (repo *auditMongo) Log(action int, user, message, data interface{}) (<-chan
 
 		// Insert entry
 		if err := conn.DB(repo.db.Name).C(repo.db.Collection).Insert(entry); err != nil {
-			errs <- err
-		} else {
-			done <- true
+			// log error
+			repo.logger.Errorf("Error by audit log: %v", err)
+
+			// convert entry to json and log
+			jEntry := entry.ToJson()
+			repo.logger.Errorf("Could not save audit entry: %v", jEntry)
 		}
 
-		close(done)
-		close(errs)
-
+		done <- true
 	}()
 
-	return done, errs
+	return done
 }

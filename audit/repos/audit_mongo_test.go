@@ -45,7 +45,7 @@ func TestNewAuditMongo(t *testing.T) {
 	db := lxDb.NewMongoDb(conn, TestDbName, AuditCollection)
 
 	// create audit mongo repo
-	repo := lxAuditRepos.NewAuditMongo(db, ServiceName, ServiceHost)
+	repo := lxAuditRepos.NewAuditMongo(db, nil, ServiceName, ServiceHost)
 
 	//  should be *lxAuditRepos.auditMongo type
 	chkT := reflect.TypeOf(repo)
@@ -83,7 +83,7 @@ func TestAuditMongo_SetupAudit(t *testing.T) {
 
 	// Db base, repo
 	db := lxDb.NewMongoDb(conn, TestDbName, AuditCollection)
-	repo := lxAuditRepos.NewAuditMongo(db, "TestService", "localhost:3101")
+	repo := lxAuditRepos.NewAuditMongo(db, nil, "TestService", "localhost:3101")
 
 	t.Run("index before setup", func(t *testing.T) {
 		idx, err := conn.DB(TestDbName).C(AuditCollection).Indexes()
@@ -114,16 +114,15 @@ func TestAuditMongo_Log(t *testing.T) {
 	// Repo and setup
 	// Db base, repo
 	db := lxDb.NewMongoDb(conn, TestDbName, AuditCollection)
-	repo := lxAuditRepos.NewAuditMongo(db, "TestService", "localhost:3101")
+	repo := lxAuditRepos.NewAuditMongo(db, nil, "TestService", "localhost:3101")
 
 	// setup repo
 	assert.NoError(t, repo.SetupAudit())
 
 	// log a new entry
-	done, errs := repo.Log(lxAudit.Log, "test_user", "a audit message", lxHelper.M{"name": "test_name"})
+	done := repo.Log(lxAudit.Log, "test_user", "a audit message", lxHelper.M{"name": "test_name"})
 
 	// wait for go routines and check
-	assert.NoError(t, <-errs)
 	assert.True(t, <-done)
 
 	// audit entry should be found in db
