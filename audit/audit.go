@@ -1,7 +1,8 @@
 package lxAudit
 
 import (
-	"fmt"
+	"encoding/json"
+	"github.com/litixsoft/lxgo/helper"
 	"time"
 )
 
@@ -24,27 +25,29 @@ type IAudit interface {
 
 // AuditModel, model for audit entry
 type AuditModel struct {
-	TimeStamp   time.Time   `json:"timestamp"`
-	ServiceName string      `json:"service_name"`
-	ServiceHost string      `json:"service_host"`
-	Action      int         `json:"action"`
-	User        interface{} `json:"user"`
-	Message     interface{} `json:"msg"`
-	Data        interface{} `json:"data"`
+	TimeStamp   time.Time   `json:"timestamp" bson:"timestamp"`
+	ServiceName string      `json:"service_name" bson:"service_name"`
+	ServiceHost string      `json:"service_host" bson:"service_host"`
+	Action      int         `json:"action" bson:"action"`
+	User        interface{} `json:"user" bson:"user"`
+	Message     interface{} `json:"msg" bson:"msg"`
+	Data        interface{} `json:"data" bson:"data"`
 }
 
+// ToJson, convert model to json string for log
 func (am *AuditModel) ToJson() string {
-	jsonStr := fmt.Sprintf(`{
-"timestamp":{"$date":"%s"},"service_name":"%s","service_host":"%s","action":"%d","user":"%v","msg":"%v","data":"%v"
-}`,
-		time.Now().UTC().Format(time.RFC3339),
-		am.ServiceName,
-		am.ServiceHost,
-		am.Action,
-		am.User,
-		am.Message,
-		am.Data,
-	)
 
-	return jsonStr
+	conEntry := lxHelper.M{
+		"timestamp":    lxHelper.M{"$date": am.TimeStamp.UTC().Format(time.RFC3339)},
+		"service_name": am.ServiceName,
+		"service_host": am.ServiceHost,
+		"action":       am.Action,
+		"user":         am.User,
+		"msg":          am.Message,
+		"data":         am.Data,
+	}
+
+	jentry, _ := json.Marshal(conEntry)
+
+	return string(jentry)
 }
