@@ -64,6 +64,7 @@ func TestAuditMongo_SetupAudit(t *testing.T) {
 		TimeStamp:   time.Now(),
 		ServiceName: ServiceName,
 		ServiceHost: ServiceHost,
+		Action:      lxAudit.Create,
 		User:        "TestUser",
 		Message:     "TestMessage",
 		Data: struct {
@@ -119,7 +120,7 @@ func TestAuditMongo_Log(t *testing.T) {
 	assert.NoError(t, repo.SetupAudit())
 
 	// log a new entry
-	done, errs := repo.Log("test_user", "a audit message", lxHelper.M{"name": "test_name"})
+	done, errs := repo.Log(lxAudit.Log, "test_user", "a audit message", lxHelper.M{"name": "test_name"})
 
 	// wait for go routines and check
 	assert.NoError(t, <-errs)
@@ -130,6 +131,7 @@ func TestAuditMongo_Log(t *testing.T) {
 	assert.NoError(t, conn.DB(db.Name).C(db.Collection).Find(lxHelper.M{"user": "test_user"}).One(&result))
 	assert.Equal(t, "TestService", result.ServiceName)
 	assert.Equal(t, "localhost:3101", result.ServiceHost)
+	assert.Equal(t, lxAudit.Log, result.Action)
 	assert.Equal(t, "test_user", result.User)
 	assert.Equal(t, "a audit message", result.Message)
 	assert.Equal(t, bson.M{"name": "test_name"}, result.Data)

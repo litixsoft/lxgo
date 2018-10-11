@@ -32,7 +32,7 @@ func (repo *auditMongo) SetupAudit() error {
 }
 
 // Log, save log entry to mongoDb
-func (repo *auditMongo) Log(user, message, data interface{}) (<-chan bool, <-chan error) {
+func (repo *auditMongo) Log(action int, user, message, data interface{}) (<-chan bool, <-chan error) {
 	// channel for done
 	done := make(chan bool, 1)
 	errs := make(chan error, 1)
@@ -47,6 +47,7 @@ func (repo *auditMongo) Log(user, message, data interface{}) (<-chan bool, <-cha
 			TimeStamp:   time.Now(),
 			ServiceName: repo.serviceName,
 			ServiceHost: repo.serviceHost,
+			Action:      action,
 			User:        user,
 			Message:     message,
 			Data:        data,
