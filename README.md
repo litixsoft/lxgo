@@ -3,6 +3,10 @@
 
 Helper and mapper for go development
 
+## Install
+
+    $ go get github.com/litixsoft/lxgo
+
 ## Install develop dependencies
     
     $ go get -v github.com/Clever/gitsem
@@ -10,3 +14,4 @@ Helper and mapper for go development
     $ go get -v github.com/golang/mock/mockgen
 
     $ go mod tidy
+    
