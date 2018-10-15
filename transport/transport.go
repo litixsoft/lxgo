@@ -54,9 +54,9 @@ func Send(res http.ResponseWriter, code int, i interface{}, contenttype string) 
 
 	if i != nil {
 		switch contenttype {
-		case TRANSPORT_CONTENTTYPE_BSON:
-			out, err = bson.Marshal(i)
 		case TRANSPORT_CONTENTTYPE_JSON:
+			out, err = json.Marshal(i)
+		case TRANSPORT_CONTENTTYPE_BSON:
 			out, err = bson.Marshal(i)
 		case TRANSPORT_CONTENTTYPE_MSGPACK:
 			out, err = msgpack.Marshal(i)
