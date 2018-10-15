@@ -33,16 +33,15 @@ func (m *MockIAudit) EXPECT() *MockIAuditMockRecorder {
 }
 
 // Log mocks base method
-func (m *MockIAudit) Log(arg0, arg1, arg2 interface{}) (<-chan bool, <-chan error) {
-	ret := m.ctrl.Call(m, "Log", arg0, arg1, arg2)
-	ret0, _ := ret[0].(<-chan bool)
-	ret1, _ := ret[1].(<-chan error)
-	return ret0, ret1
+func (m *MockIAudit) Log(arg0 int, arg1, arg2, arg3 interface{}) chan bool {
+	ret := m.ctrl.Call(m, "Log", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(chan bool)
+	return ret0
 }
 
 // Log indicates an expected call of Log
-func (mr *MockIAuditMockRecorder) Log(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockIAudit)(nil).Log), arg0, arg1, arg2)
+func (mr *MockIAuditMockRecorder) Log(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockIAudit)(nil).Log), arg0, arg1, arg2, arg3)
 }
 
 // SetupAudit mocks base method
