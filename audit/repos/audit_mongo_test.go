@@ -38,7 +38,7 @@ func init() {
 }
 
 func TestNewAuditMongo(t *testing.T) {
-	conn := lxDb.GetMongoDbConnection(dbHost, "", "", "")
+	conn := lxDb.GetMongoDbConnection(dbHost)
 	defer conn.Close()
 
 	// Db base repo
@@ -53,7 +53,7 @@ func TestNewAuditMongo(t *testing.T) {
 }
 
 func TestAuditMongo_SetupAudit(t *testing.T) {
-	conn := lxDb.GetMongoDbConnection(dbHost, "", "", "")
+	conn := lxDb.GetMongoDbConnection(dbHost)
 	defer conn.Close()
 
 	// Delete collection
@@ -105,7 +105,7 @@ func TestAuditMongo_SetupAudit(t *testing.T) {
 }
 
 func TestAuditMongo_Log(t *testing.T) {
-	conn := lxDb.GetMongoDbConnection(dbHost, "", "", "")
+	conn := lxDb.GetMongoDbConnection(dbHost)
 	defer conn.Close()
 
 	// Delete collection

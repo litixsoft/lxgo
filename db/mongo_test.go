@@ -96,7 +96,7 @@ func setupData(conn *mgo.Session) []TestUser {
 }
 
 func TestNewMongoDb(t *testing.T) {
-	conn := lxDb.GetMongoDbConnection(dbHost, "", "", "")
+	conn := lxDb.GetMongoDbConnection(dbHost)
 	defer conn.Close()
 
 	t.Run("correct type", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestNewMongoDb(t *testing.T) {
 		testUsers := setupData(conn)
 
 		var result []TestUser
-		db.Conn.DB(db.Name).C(db.Collection).Find(nil).All(&result)
+		assert.NoError(t, db.Conn.DB(db.Name).C(db.Collection).Find(nil).All(&result))
 
 		// Sort result for compare
 		sort.Slice(result[:], func(i, j int) bool {
@@ -124,7 +124,7 @@ func TestNewMongoDb(t *testing.T) {
 }
 
 func TestMongoDb_Setup(t *testing.T) {
-	conn := lxDb.GetMongoDbConnection(dbHost, "", "", "")
+	conn := lxDb.GetMongoDbConnection(dbHost)
 	defer conn.Close()
 
 	// Delete collection if exists
@@ -133,10 +133,10 @@ func TestMongoDb_Setup(t *testing.T) {
 	db := lxDb.NewMongoDb(conn, TestDbName, TestCollection)
 
 	// setup indexes
-	db.Setup([]mgo.Index{
+	assert.NoError(t, db.Setup([]mgo.Index{
 		{Key: []string{"name"}},
 		{Key: []string{"email"}, Unique: true},
-	})
+	}))
 
 	// index should be correct set
 	idx, err := db.Conn.DB(db.Name).C(db.Collection).Indexes()

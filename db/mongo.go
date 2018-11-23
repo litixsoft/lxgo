@@ -14,26 +14,22 @@ type MongoDb struct {
 }
 
 // NewMongoDbConn, get a new db connection
-func GetMongoDbConnection(dbHost, authDatabase, username, password string) *mgo.Session {
+func GetMongoDbConnection(url string) *mgo.Session {
 	// dial info
-	dialInfo := &mgo.DialInfo{
-		Addrs:   []string{dbHost},
-		Timeout: 30 * time.Second,
+	dialInfo, err := mgo.ParseURL(url)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// check params
-	if authDatabase != "" && username != "" && password != "" {
-		dialInfo.Database = authDatabase
-		dialInfo.Username = username
-		dialInfo.Password = password
-	}
+	// Connection timeout
+	dialInfo.Timeout = 30 * time.Second
 
 	// Create new connection
 	conn, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		log.Fatal(err)
 	}
-	conn.SetMode(mgo.Monotonic, true)
+	conn.SetMode(mgo.Primary, true)
 
 	return conn
 }
