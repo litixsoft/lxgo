@@ -6,7 +6,7 @@ package lxSchemaMocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	echo "github.com/labstack/echo"
+	v4 "github.com/labstack/echo/v4"
 	schema "github.com/litixsoft/lxgo/schema"
 	gojsonschema "github.com/xeipuuv/gojsonschema"
 	reflect "reflect"
@@ -37,6 +37,7 @@ func (m *MockIJSONSchema) EXPECT() *MockIJSONSchemaMockRecorder {
 
 // HasSchema mocks base method
 func (m *MockIJSONSchema) HasSchema(arg0 string) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasSchema", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -44,11 +45,13 @@ func (m *MockIJSONSchema) HasSchema(arg0 string) bool {
 
 // HasSchema indicates an expected call of HasSchema
 func (mr *MockIJSONSchemaMockRecorder) HasSchema(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasSchema", reflect.TypeOf((*MockIJSONSchema)(nil).HasSchema), arg0)
 }
 
 // LoadSchema mocks base method
 func (m *MockIJSONSchema) LoadSchema(arg0 string) (gojsonschema.JSONLoader, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadSchema", arg0)
 	ret0, _ := ret[0].(gojsonschema.JSONLoader)
 	ret1, _ := ret[1].(error)
@@ -57,11 +60,13 @@ func (m *MockIJSONSchema) LoadSchema(arg0 string) (gojsonschema.JSONLoader, erro
 
 // LoadSchema indicates an expected call of LoadSchema
 func (mr *MockIJSONSchemaMockRecorder) LoadSchema(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSchema", reflect.TypeOf((*MockIJSONSchema)(nil).LoadSchema), arg0)
 }
 
 // SetSchemaRootDirectory mocks base method
 func (m *MockIJSONSchema) SetSchemaRootDirectory(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetSchemaRootDirectory", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -69,11 +74,13 @@ func (m *MockIJSONSchema) SetSchemaRootDirectory(arg0 string) error {
 
 // SetSchemaRootDirectory indicates an expected call of SetSchemaRootDirectory
 func (mr *MockIJSONSchemaMockRecorder) SetSchemaRootDirectory(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSchemaRootDirectory", reflect.TypeOf((*MockIJSONSchema)(nil).SetSchemaRootDirectory), arg0)
 }
 
 // ValidateBind mocks base method
-func (m *MockIJSONSchema) ValidateBind(arg0 string, arg1 echo.Context, arg2 interface{}) (*schema.JSONValidationResult, error) {
+func (m *MockIJSONSchema) ValidateBind(arg0 string, arg1 v4.Context, arg2 interface{}) (*schema.JSONValidationResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateBind", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*schema.JSONValidationResult)
 	ret1, _ := ret[1].(error)
@@ -82,5 +89,6 @@ func (m *MockIJSONSchema) ValidateBind(arg0 string, arg1 echo.Context, arg2 inte
 
 // ValidateBind indicates an expected call of ValidateBind
 func (mr *MockIJSONSchemaMockRecorder) ValidateBind(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBind", reflect.TypeOf((*MockIJSONSchema)(nil).ValidateBind), arg0, arg1, arg2)
 }

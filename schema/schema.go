@@ -3,7 +3,7 @@ package lxSchema
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/xeipuuv/gojsonschema"
 	"io/ioutil"
 	"path/filepath"

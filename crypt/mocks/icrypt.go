@@ -34,6 +34,7 @@ func (m *MockICrypt) EXPECT() *MockICryptMockRecorder {
 
 // ComparePassword mocks base method
 func (m *MockICrypt) ComparePassword(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ComparePassword", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -41,11 +42,13 @@ func (m *MockICrypt) ComparePassword(arg0, arg1 string) error {
 
 // ComparePassword indicates an expected call of ComparePassword
 func (mr *MockICryptMockRecorder) ComparePassword(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComparePassword", reflect.TypeOf((*MockICrypt)(nil).ComparePassword), arg0, arg1)
 }
 
 // GeneratePassword mocks base method
 func (m *MockICrypt) GeneratePassword(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GeneratePassword", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -54,5 +57,6 @@ func (m *MockICrypt) GeneratePassword(arg0 string) (string, error) {
 
 // GeneratePassword indicates an expected call of GeneratePassword
 func (mr *MockICryptMockRecorder) GeneratePassword(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GeneratePassword", reflect.TypeOf((*MockICrypt)(nil).GeneratePassword), arg0)
 }

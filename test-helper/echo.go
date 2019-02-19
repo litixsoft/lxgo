@@ -1,7 +1,7 @@
 package lxTestHelper
 
 import (
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"io"
 	"io/ioutil"
 	"net/http/httptest"

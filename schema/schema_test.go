@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/litixsoft/lxgo/helper"
 	"github.com/litixsoft/lxgo/schema"
 	"github.com/litixsoft/lxgo/test-helper"
