@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"github.com/litixsoft/lxgo/helper"
 	"github.com/litixsoft/lxgo/schema"
 	"github.com/litixsoft/lxgo/test-helper"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -20,7 +20,7 @@ const (
 	SCHEMA_NOTEXISTS_FILENAME = "schema_002.json"
 )
 
-func buildEchoContext(data lxHelper.M) echo.Context {
+func buildHTTPContext(data lxHelper.M) (*http.Request, *httptest.ResponseRecorder) {
 	// Convert login data to json
 	//user := lxHelper.M{"name": "Otto", "login_name": "otto", "email": "otto@otto.com"}
 
@@ -30,11 +30,7 @@ func buildEchoContext(data lxHelper.M) echo.Context {
 		panic(err)
 	}
 
-	e := echo.New()
-	e.Logger.SetOutput(ioutil.Discard)
-	req, rec := lxTestHelper.GetTestReqAndRecJson(echo.POST, "/request_mock", bytes.NewBuffer(jsonData))
-
-	return e.NewContext(req, rec)
+	return lxTestHelper.GetTestReqAndRecJson(http.MethodPost, "/request_mock", bytes.NewBuffer(jsonData))
 }
 
 func TestJSONSchemaStruct_SetSchemaRootDirectory(t *testing.T) {
@@ -128,7 +124,7 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 
 		assert.Nil(t, res, "schema was loaded")
 		assert.Error(t, err)
-		assert.Equal(t, err, fmt.Errorf("context is required"))
+		assert.Equal(t, err, fmt.Errorf("http.request is required"))
 	})
 
 	t.Run("validate with given context", func(t *testing.T) {
@@ -137,8 +133,8 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 		err := lxSchema.Loader.SetSchemaRootDirectory(SCHEMAROOTPATH)
 		assert.NoError(t, err)
 
-		c := buildEchoContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "otto@otto.com"})
-		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, c, nil)
+		req, _ := buildHTTPContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "otto@otto.com"})
+		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, req, nil)
 
 		assert.Nil(t, res, "no valid result")
 		assert.NoError(t, err, "returns error")
@@ -156,8 +152,8 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 			Email     string `json:"email"`
 		}
 
-		c := buildEchoContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "otto@otto.com"})
-		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, c, &s)
+		req, _ := buildHTTPContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "otto@otto.com"})
+		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, req, &s)
 
 		assert.Nil(t, res, "no valid result")
 		assert.NoError(t, err, "returns error")
@@ -180,8 +176,8 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 			Email     string `json:"email"`
 		}
 
-		c := buildEchoContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "wrong"})
-		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, c, &s)
+		req, _ := buildHTTPContext(lxHelper.M{"name": "Otto", "login_name": "otto", "email": "wrong"})
+		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, req, &s)
 
 		assert.NotNil(t, res, "no valid result")
 		assert.NoError(t, err, "returns error")
@@ -210,11 +206,8 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 		// Invalid Json - { "login_name": Data", }
 		jsonData := `{ "login_name": Data", }`
 
-		e := echo.New()
-		e.Logger.SetOutput(ioutil.Discard)
-		req, rec := lxTestHelper.GetTestReqAndRecJson(echo.POST, "/request_mock", bytes.NewBufferString(jsonData))
-		c := e.NewContext(req, rec)
-		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, c, &s)
+		req, _ := lxTestHelper.GetTestReqAndRecJson(http.MethodPost, "/request_mock", bytes.NewBufferString(jsonData))
+		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, req, &s)
 
 		assert.Nil(t, res, "no result expected")
 		assert.Error(t, err, "error wantend while invalid json")

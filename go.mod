@@ -5,7 +5,6 @@ require (
 	github.com/globalsign/mgo v0.0.0-20180905125535-1ca0a4f7cbcb
 	github.com/golang/mock v1.2.0
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/labstack/echo/v4 v4.0.0
 	github.com/pkg/errors v0.8.0
 	github.com/stretchr/testify v1.3.0
 	github.com/vmihailenco/msgpack v4.0.0+incompatible

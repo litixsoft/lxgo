@@ -3,9 +3,9 @@ package lxSchema
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"github.com/xeipuuv/gojsonschema"
 	"io/ioutil"
+	"net/http"
 	"path/filepath"
 )
 
@@ -23,7 +23,7 @@ type IJSONSchema interface {
 	SetSchemaRootDirectory(dirname string) error
 	HasSchema(filename string) bool
 	LoadSchema(filename string) (gojsonschema.JSONLoader, error)
-	ValidateBind(schema string, c echo.Context, s interface{}) (*JSONValidationResult, error)
+	ValidateBind(schema string, req *http.Request, s interface{}) (*JSONValidationResult, error)
 }
 
 type JSONSchema struct {
@@ -77,7 +77,11 @@ func (js *JSONSchema) LoadSchema(filename string) (gojsonschema.JSONLoader, erro
 }
 
 // ValidateBind - validate given c:echo.Context with schema and binds if success to s:interface{} - if schema not loaded func will perform it
-func (js *JSONSchema) ValidateBind(schema string, c echo.Context, s interface{}) (*JSONValidationResult, error) {
+func (js *JSONSchema) ValidateBind(schema string, req *http.Request, s interface{}) (*JSONValidationResult, error) {
+	if req == nil {
+		return nil, fmt.Errorf("http.request is required")
+	}
+
 	schemaLoader, err := js.LoadSchema(schema)
 
 	if err != nil {
@@ -89,16 +93,12 @@ func (js *JSONSchema) ValidateBind(schema string, c echo.Context, s interface{})
 		return nil, fmt.Errorf("schema could not be loaded %s", schema)
 	}
 
-	if c == nil {
-		return nil, fmt.Errorf("context is required")
-	}
-
 	var (
 		jsonRAWDoc []byte
 	)
 
 	// Read []byte stream from Request Body
-	if jsonRAWDoc, err = ioutil.ReadAll(c.Request().Body); err != nil {
+	if jsonRAWDoc, err = ioutil.ReadAll(req.Body); err != nil {
 		return nil, err
 	}
 
