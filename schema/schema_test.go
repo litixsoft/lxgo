@@ -9,9 +9,11 @@ import (
 	"github.com/litixsoft/lxgo/schema"
 	"github.com/litixsoft/lxgo/test-helper"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"testing"
 )
 
+///TODO const format ändern SCHEMAROOTPATH -> SchemaRootPath
 const (
 	SCHEMAROOTPATH            = "fixtures"
 	SCHEMA_EXISTS_FILENAME    = "schema_001.json"
@@ -28,8 +30,11 @@ func buildEchoContext(data lxHelper.M) echo.Context {
 		panic(err)
 	}
 
-	_, c := lxTestHelper.SetEchoRequest(echo.POST, "/request_mock", bytes.NewBuffer(jsonData))
-	return c
+	e := echo.New()
+	e.Logger.SetOutput(ioutil.Discard)
+	req, rec := lxTestHelper.GetTestReqAndRecJson(echo.POST, "/request_mock", bytes.NewBuffer(jsonData))
+
+	return e.NewContext(req, rec)
 }
 
 func TestJSONSchemaStruct_SetSchemaRootDirectory(t *testing.T) {
@@ -205,7 +210,10 @@ func TestJSONSchemaStruct_ValidateBind(t *testing.T) {
 		// Invalid Json - { "login_name": Data", }
 		jsonData := `{ "login_name": Data", }`
 
-		_, c := lxTestHelper.SetEchoRequest(echo.POST, "/request_mock", bytes.NewBufferString(jsonData))
+		e := echo.New()
+		e.Logger.SetOutput(ioutil.Discard)
+		req, rec := lxTestHelper.GetTestReqAndRecJson(echo.POST, "/request_mock", bytes.NewBufferString(jsonData))
+		c := e.NewContext(req, rec)
 		res, err := lxSchema.Loader.ValidateBind(SCHEMA_EXISTS_FILENAME, c, &s)
 
 		assert.Nil(t, res, "no result expected")
