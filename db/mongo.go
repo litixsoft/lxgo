@@ -59,3 +59,7 @@ func (db *MongoDb) Setup(indexes []mgo.Index) error {
 
 	return nil
 }
+
+func (db *MongoDb) Audit() {
+
+}
