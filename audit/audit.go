@@ -1,4 +1,4 @@
-package lxaudit
+package lxAudit
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func InitAuditConfigInstance(client *http.Client, auditHost, auditAuthKey, hostN
 	auditMux.Unlock()
 }
 
-// GetAuditInstance
+// GetAuditInstance, create new instance of audit with singleton auditConfig
 func GetAuditInstance(dbHost, dbName, collectionName string) IAudit {
 	// check config instance
 	if auditConfigInstance == nil {
