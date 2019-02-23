@@ -50,3 +50,5 @@ tasks:
       - mockgen -destination=crypt/mocks/icrypt.go -package=lxCryptMocks github.com/litixsoft/lxgo/crypt ICrypt
       - mkdir -p schema/mocks
       - mockgen -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks github.com/litixsoft/lxgo/schema IJSONSchema
+#      - mkdir -p audit/mocks
+      - mockgen -destination=audit/iaudit_mock.go -package=lxAudit github.com/litixsoft/lxgo/audit IAudit
