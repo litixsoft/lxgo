@@ -16,18 +16,18 @@ const (
 	GreenDark   = "#88BC2B"
 )
 
-type IMsTeamsApi interface {
+type IMsTeams interface {
 	SendSmall(title, msg, color string) ([]byte, error)
 }
 
-type MsTeamsApi struct {
+type MsTeams struct {
 	Client  *http.Client
 	BaseUrl string
 	Path    string
 }
 
 // SendSmall, small card for Microsoft Teams
-func (api *MsTeamsApi) SendSmall(title, msg, color string) ([]byte, error) {
+func (api *MsTeams) SendSmall(title, msg, color string) ([]byte, error) {
 	// Set entry for request
 	entry := lxHelper.M{
 		"@context":   "https://schema.org/extensions",

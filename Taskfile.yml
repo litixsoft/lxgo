@@ -52,3 +52,5 @@ tasks:
       - mockgen -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks github.com/litixsoft/lxgo/schema IJSONSchema
 #      - mkdir -p audit/mocks
       - mockgen -destination=audit/iaudit_mock.go -package=lxAudit github.com/litixsoft/lxgo/audit IAudit
+      - mkdir -p webhooks/mocks
+      - mockgen -destination=webhooks/mocks/imsteams.go -package=lxWebhooksMocks github.com/litixsoft/lxgo/webhooks IMsTeams

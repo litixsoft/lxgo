@@ -21,7 +21,7 @@ var (
 	color = lxWebhooks.RedDark
 )
 
-func TestMsTeamsApi_SendSmall(t *testing.T) {
+func TestMsTeams_SendSmall(t *testing.T) {
 	// test server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test request parameters
@@ -52,7 +52,7 @@ func TestMsTeamsApi_SendSmall(t *testing.T) {
 	defer server.Close()
 
 	// test ms teams
-	api := &lxWebhooks.MsTeamsApi{
+	api := &lxWebhooks.MsTeams{
 		Client:  server.Client(),
 		BaseUrl: server.URL,
 		Path:    Path,
