@@ -11,11 +11,8 @@ import (
 	"testing"
 )
 
-const (
-	Path = "/webhook/64112b37-462c-4c47"
-)
-
 var (
+	path  = "/webhook/64112b37-462c-4c47"
 	title = "Test99"
 	msg   = "test message"
 	color = lxWebhooks.RedDark
@@ -25,7 +22,7 @@ func TestMsTeams_SendSmall(t *testing.T) {
 	// test server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test request parameters
-		assert.Equal(t, req.URL.String(), Path)
+		assert.Equal(t, req.URL.String(), path)
 		body, err := ioutil.ReadAll(req.Body)
 		assert.NoError(t, err)
 
@@ -55,7 +52,7 @@ func TestMsTeams_SendSmall(t *testing.T) {
 	api := &lxWebhooks.MsTeams{
 		Client:  server.Client(),
 		BaseUrl: server.URL,
-		Path:    Path,
+		Path:    path,
 	}
 
 	// send request with client
