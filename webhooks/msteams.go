@@ -16,10 +16,6 @@ const (
 	GreenDark   = "#88BC2B"
 )
 
-type IMsTeams interface {
-	SendSmall(title, msg, color string) ([]byte, error)
-}
-
 type MsTeams struct {
 	Client  *http.Client
 	BaseUrl string

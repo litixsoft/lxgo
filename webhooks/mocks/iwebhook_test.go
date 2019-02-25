@@ -15,20 +15,20 @@ var (
 	color = lxWebhooks.RedDark
 )
 
-func TestMockIMsTeams_SendSmall(t *testing.T) {
+func TestMockIWebhook_SendSmall(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	// Mock MsTeamsApi for test
-	mockIMsTeams := lxWebhooksMocks.NewMockIMsTeams(mockCtrl)
+	mockIWebhook := lxWebhooksMocks.NewMockIWebhook(mockCtrl)
 
 	// set expects for correct and error
-	mockIMsTeams.EXPECT().SendSmall(title, msg, color).Return([]byte(""), nil).Times(1)
-	mockIMsTeams.EXPECT().SendSmall(title, msg, color).Return([]byte(""), errors.New("test error")).Times(1)
+	mockIWebhook.EXPECT().SendSmall(title, msg, color).Return([]byte(""), nil).Times(1)
+	mockIWebhook.EXPECT().SendSmall(title, msg, color).Return([]byte(""), errors.New("test error")).Times(1)
 
 	// check correct and error
-	_, err1 := mockIMsTeams.SendSmall(title, msg, color)
+	_, err1 := mockIWebhook.SendSmall(title, msg, color)
 	assert.NoError(t, err1)
-	_, err2 := mockIMsTeams.SendSmall(title, msg, color)
+	_, err2 := mockIWebhook.SendSmall(title, msg, color)
 	assert.Error(t, err2)
 }

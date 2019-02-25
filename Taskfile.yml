@@ -53,4 +53,4 @@ tasks:
       - mkdir -p audit/mocks
       - mockgen -destination=audit/mocks/iaudit.go -package=lxAuditMocks github.com/litixsoft/lxgo/audit IAudit
       - mkdir -p webhooks/mocks
-      - mockgen -destination=webhooks/mocks/imsteams.go -package=lxWebhooksMocks github.com/litixsoft/lxgo/webhooks IMsTeams
+      - mockgen -destination=webhooks/mocks/iwebhook.go -package=lxWebhooksMocks github.com/litixsoft/lxgo/webhooks IWebhook
