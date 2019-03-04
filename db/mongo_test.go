@@ -2,6 +2,7 @@ package lxDb_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	"github.com/litixsoft/lxgo/db"
@@ -12,6 +13,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 )
 
 // TestUser, struct for test users
@@ -145,4 +147,46 @@ func TestMongoDb_Setup(t *testing.T) {
 	assert.Equal(t, "email_1", idx[1].Name)
 	assert.True(t, idx[1].Unique)
 	assert.Equal(t, "name_1", idx[2].Name)
+}
+
+func TestAuditModel_ToJson(t *testing.T) {
+	// Actual time for test
+	testTime := time.Now()
+
+	// Expected string
+	expect := fmt.Sprintf(`{"action":"create","collection":"users","data":{"firstname":"Timo","lastname":"Liebetrau"},"timestamp":{"$date":"%s"},"user":{"name":"Timo Liebetrau"}}`, testTime.UTC().Format(time.RFC3339))
+
+	// Actual struct
+	actual := lxDb.AuditModel{
+		TimeStamp:  testTime,
+		Collection: "users",
+		Action:     "create",
+		User:       bson.M{"name": "Timo Liebetrau"},
+		Data:       bson.M{"firstname": "Timo", "lastname": "Liebetrau"},
+	}
+
+	// Compare, should be equal
+	assert.Equal(t, expect, actual.ToJson())
+}
+
+func TestMongoDb_AuditLog(t *testing.T) {
+	conn := lxDb.GetMongoDbConnection(dbHost)
+	defer conn.Close()
+
+	// Delete collection if exists
+	conn.DB(TestDbName).C("audit").DropCollection()
+
+	db := lxDb.NewMongoDb(conn, TestDbName, TestCollection)
+
+	testUser := bson.M{"name": "Timo Liebetrau", "age": float64(45)}
+	testData := bson.M{"customer": "Karl Lagerfeld"}
+
+	assert.NoError(t, db.AuditLog(lxDb.ActionInsert, testUser, testData))
+
+	// check entry in db
+	var res []lxDb.AuditModel
+	assert.NoError(t, db.Conn.DB(TestDbName).C("audit").Find(nil).All(&res))
+
+	assert.Equal(t, TestCollection, res[0].Collection)
+	assert.Equal(t, lxDb.ActionInsert, res[0].Action)
 }

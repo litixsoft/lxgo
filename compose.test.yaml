@@ -1,7 +1,7 @@
 version: '3'
 services:
   lxgo:
-    image: golang:1.11
+    image: golang:1.12
     volumes:
       - .:/root/app
     working_dir: /root/app

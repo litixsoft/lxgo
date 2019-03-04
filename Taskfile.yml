@@ -13,8 +13,6 @@ tasks:
 
   test-docker:
     cmds:
-      - docker pull golang:{{.GOLANG_VERSION}}
-      - docker pull mongo:{{.MONGO_VERSION}}
       - docker-compose -f {{.COMPOSE_TEST}} down
       - docker-compose -f {{.COMPOSE_TEST}} build
       - docker-compose -f {{.COMPOSE_TEST}} run {{.SERVICE}}
