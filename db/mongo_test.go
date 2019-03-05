@@ -41,7 +41,7 @@ func init() {
 
 	// When not defined set default host
 	if dbHost == "" {
-		dbHost = "localhost:27017"
+		dbHost = "127.0.0.1:27017"
 	}
 
 	log.Println("DB_HOST:", dbHost)
@@ -185,7 +185,7 @@ func TestMongoDb_AuditLog(t *testing.T) {
 
 	// check entry in db
 	var res []lxDb.AuditModel
-	assert.NoError(t, db.Conn.DB(TestDbName).C("audit").Find(nil).All(&res))
+	assert.NoError(t, db.Conn.DB(TestDbName+"_audit").C("audit").Find(nil).All(&res))
 
 	assert.Equal(t, TestCollection, res[0].Collection)
 	assert.Equal(t, lxDb.ActionInsert, res[0].Action)

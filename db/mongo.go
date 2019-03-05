@@ -79,7 +79,7 @@ func (db *MongoDb) AuditLog(action string, user, data interface{}) error {
 	entry.User = user
 	entry.Data = data
 
-	if err := conn.DB(db.Name).C("audit").Insert(entry); err != nil {
+	if err := conn.DB(db.Name + "_audit").C("audit").Insert(entry); err != nil {
 		jEntry := entry.ToJson()
 		auditErr = errors.New(fmt.Sprintf("Could not save audit entry: %v", jEntry))
 	}
