@@ -1,11 +1,7 @@
 package lxDb
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
-	"github.com/pkg/errors"
 	"log"
 	"time"
 )
@@ -62,42 +58,4 @@ func (db *MongoDb) Setup(indexes []mgo.Index) error {
 	}
 
 	return nil
-}
-
-// AuditLog log db audit
-func (db *MongoDb) AuditLog(action string, user, data interface{}) error {
-	var auditErr error
-
-	conn := db.Conn.Copy()
-	defer conn.Close()
-
-	// New entry
-	entry := new(AuditModel)
-	entry.TimeStamp = time.Now()
-	entry.Collection = db.Collection
-	entry.Action = action
-	entry.User = user
-	entry.Data = data
-
-	if err := conn.DB(db.Name + "_audit").C("audit").Insert(entry); err != nil {
-		jEntry := entry.ToJson()
-		auditErr = errors.New(fmt.Sprintf("Could not save audit entry: %v", jEntry))
-	}
-
-	return auditErr
-}
-
-// ToJson, convert model to json string for log
-func (am *AuditModel) ToJson() string {
-	conEntry := bson.M{
-		"timestamp":  bson.M{"$date": am.TimeStamp.UTC().Format(time.RFC3339)},
-		"collection": am.Collection,
-		"action":     am.Action,
-		"user":       am.User,
-		"data":       am.Data,
-	}
-
-	jentry, _ := json.Marshal(conEntry)
-
-	return string(jentry)
 }
