@@ -14,7 +14,7 @@ import (
 
 var (
 	testKey            = "c470e652-6d46-4f9d-960d-f32d84e682e7"
-	testHost           = "test.host"
+	testClientHost     = "test.host"
 	testPath           = "/log"
 	testDbHost         = "test.dbhost"
 	testDbName         = "test.dbName"
@@ -38,7 +38,7 @@ func getTestServer(t *testing.T, rtStatus int) *httptest.Server {
 		// expected map
 		expected := lxHelper.M{
 			"db_host":    testDbHost,
-			"host":       testHost,
+			"host":       testClientHost,
 			"db":         testDbName,
 			"collection": testCollectionName,
 			"action":     lxAudit.Remove,
@@ -75,7 +75,7 @@ func TestGetAuditInstance(t *testing.T) {
 	})
 	t.Run("with init", func(t *testing.T) {
 		// init audit instance
-		lxAudit.InitAuditConfigInstance(&http.Client{}, "http://test", testKey, testHost)
+		lxAudit.InitAuditConfigInstance(testClientHost, "http://test", testKey)
 
 		// get audit instance
 		audit := lxAudit.GetAuditInstance(testDbHost, testDbName, testCollectionName)
@@ -95,7 +95,7 @@ func TestAudit_Log(t *testing.T) {
 		defer server.Close()
 
 		// init logger
-		lxAudit.InitAuditConfigInstance(server.Client(), server.URL, testKey, testHost)
+		lxAudit.InitAuditConfigInstance(testClientHost, server.URL, testKey)
 
 		// log test entry and check error
 		assert.NoError(t, lxAudit.GetAuditInstance(testDbHost, testDbName, testCollectionName).Log(lxAudit.Remove, testUser, testData))
@@ -106,7 +106,7 @@ func TestAudit_Log(t *testing.T) {
 		defer server.Close()
 
 		// init logger
-		lxAudit.InitAuditConfigInstance(server.Client(), server.URL, testKey, testHost)
+		lxAudit.InitAuditConfigInstance(testClientHost, server.URL, testKey)
 
 		// log test entry and check error
 		assert.Error(t, lxAudit.GetAuditInstance(testDbHost, testDbName, testCollectionName).Log(lxAudit.Remove, testUser, testData))
@@ -118,7 +118,7 @@ func TestAudit_Log(t *testing.T) {
 		defer server.Close()
 
 		// init logger
-		lxAudit.InitAuditConfigInstance(server.Client(), server.URL, testKey, testHost)
+		lxAudit.InitAuditConfigInstance(testClientHost, server.URL, testKey)
 
 		// log test entry and check error
 		assert.Error(t, lxAudit.GetAuditInstance(testDbHost, testDbName, testCollectionName).Log(lxAudit.Remove, testUser, testData))

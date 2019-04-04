@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const (
@@ -27,9 +28,9 @@ type IAudit interface {
 // audit config struct
 type auditConfig struct {
 	client       *http.Client
+	clientHost   string
 	auditHost    string
 	auditAuthKey string
-	hostName     string
 }
 
 // audit struct
@@ -48,13 +49,13 @@ var (
 )
 
 // InitAuditInstance, set instance for auditConfig
-func InitAuditConfigInstance(client *http.Client, auditHost, auditAuthKey, hostName string) {
+func InitAuditConfigInstance(clientHost, auditHost, auditAuthKey string) {
 	auditMux.Lock()
 	auditConfigInstance = &auditConfig{
-		client:       client,
+		client:       &http.Client{Timeout: time.Duration(10 * time.Second)},
+		clientHost:   clientHost,
 		auditHost:    auditHost,
 		auditAuthKey: auditAuthKey,
-		hostName:     hostName,
 	}
 	auditMux.Unlock()
 }
@@ -78,7 +79,7 @@ func GetAuditInstance(dbHost, dbName, collectionName string) IAudit {
 func (a *audit) Log(action string, user, data interface{}) error {
 	// Set entry for request
 	entry := lxHelper.M{
-		"host":       auditConfigInstance.hostName,
+		"host":       auditConfigInstance.clientHost,
 		"db_host":    a.dbHost,
 		"db":         a.dbName,
 		"collection": a.collectionName,

@@ -17,7 +17,6 @@ tasks:
       - docker-compose -f {{.COMPOSE_TEST}} build
       - docker-compose -f {{.COMPOSE_TEST}} run {{.SERVICE}}
       - docker-compose -f {{.COMPOSE_TEST}} down
-      - docker image prune -f
     env:
       GOLANG_VERSION: "{{.GOLANG_VERSION}}"
       MONGO_VERSION: "{{.MONGO_VERSION}}"
