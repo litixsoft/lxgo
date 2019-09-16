@@ -18,7 +18,8 @@ const (
 
 type Slack struct {
 	Client   *http.Client
-	Url      string
+	BaseUrl  string
+	Path     string
 	Username string
 	Icon     string
 }
@@ -48,7 +49,7 @@ func (api *Slack) SendSmall(title, msg, level string) ([]byte, error) {
 	}
 
 	// Post to url
-	response, err := api.Client.Post(api.Url, "application/json", bytes.NewBuffer(jsonData))
+	response, err := api.Client.Post(api.BaseUrl+api.Path, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}

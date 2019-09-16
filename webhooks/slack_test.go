@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	slackPath     = "/hook/0815"
 	slackTitle    = "SlackTest99"
 	slackUsername = "test"
 	slackIcon     = ":exclamation:"
@@ -24,7 +25,7 @@ func TestSlack_SendSmall(t *testing.T) {
 	// test server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test request parameters
-		assert.Equal(t, req.URL.String(), path)
+		assert.Equal(t, req.URL.String(), slackPath)
 		body, err := ioutil.ReadAll(req.Body)
 		assert.NoError(t, err)
 
@@ -60,7 +61,8 @@ func TestSlack_SendSmall(t *testing.T) {
 	// test ms teams
 	api := &lxWebhooks.Slack{
 		Client:   server.Client(),
-		Url:      server.URL,
+		BaseUrl:  server.URL,
+		Path:     slackPath,
 		Username: slackUsername,
 		Icon:     slackIcon,
 	}
