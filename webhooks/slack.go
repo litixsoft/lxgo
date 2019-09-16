@@ -10,12 +10,6 @@ import (
 	lxHelper "github.com/litixsoft/lxgo/helper"
 )
 
-const (
-	Error = "danger"
-	Warn  = "warning"
-	Info  = "good"
-)
-
 type Slack struct {
 	Client   *http.Client
 	BaseUrl  string
@@ -26,14 +20,24 @@ type Slack struct {
 
 // SendSmall, send message to slack
 func (api *Slack) SendSmall(title, msg, level string) ([]byte, error) {
+	color := ""
+
+	switch level {
+	case Error:
+		color = "danger"
+	case Warn:
+		color = "warning"
+	case Info:
+		color = "good"
+	}
+
 	// Set entry for request
 	entry := lxHelper.M{
 		"username":   api.Username,
-		"text":       "",
 		"icon_emoji": api.Icon,
 		"attachments": []lxHelper.M{{
 			"fallback": msg,
-			"color":    level,
+			"color":    color,
 			"fields": []lxHelper.M{{
 				"title": title,
 				"value": msg,

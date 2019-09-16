@@ -3,17 +3,11 @@ package lxWebhooks
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/litixsoft/lxgo/helper"
 	"io/ioutil"
 	"log"
 	"net/http"
-)
 
-const (
-	RedDark     = "#ED1B3E"
-	MagentaDark = "#F236B8"
-	YellowDark  = "#FBC940"
-	GreenDark   = "#88BC2B"
+	"github.com/litixsoft/lxgo/helper"
 )
 
 type MsTeams struct {
@@ -23,7 +17,18 @@ type MsTeams struct {
 }
 
 // SendSmall, small card for Microsoft Teams
-func (api *MsTeams) SendSmall(title, msg, color string) ([]byte, error) {
+func (api *MsTeams) SendSmall(title, msg, level string) ([]byte, error) {
+	color := ""
+
+	switch level {
+	case Error:
+		color = "#ED1B3E"
+	case Warn:
+		color = "#FBC940"
+	case Info:
+		color = "#88BC2B"
+	}
+
 	// Set entry for request
 	entry := lxHelper.M{
 		"@context":   "https://schema.org/extensions",

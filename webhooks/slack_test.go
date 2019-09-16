@@ -36,11 +36,10 @@ func TestSlack_SendSmall(t *testing.T) {
 		// expected map
 		expected := &lxHelper.M{
 			"username":   slackUsername,
-			"text":       "",
 			"icon_emoji": slackIcon,
 			"attachments": []interface{}{map[string]interface{}{
 				"fallback": slackMsg,
-				"color":    slackLevel,
+				"color":    "warning",
 				"fields": []interface{}{map[string]interface{}{
 					"title": slackTitle,
 					"value": slackMsg,

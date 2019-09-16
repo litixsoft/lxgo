@@ -12,7 +12,7 @@ import (
 var (
 	title = "Test99"
 	msg   = "test message"
-	color = lxWebhooks.RedDark
+	color = lxWebhooks.Error
 )
 
 func TestMockIWebhook_SendSmall(t *testing.T) {

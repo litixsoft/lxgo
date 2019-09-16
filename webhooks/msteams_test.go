@@ -15,7 +15,7 @@ var (
 	path  = "/webhook/64112b37-462c-4c47"
 	title = "Test99"
 	msg   = "test message"
-	color = lxWebhooks.RedDark
+	color = lxWebhooks.Error
 )
 
 func TestMsTeams_SendSmall(t *testing.T) {
@@ -34,7 +34,7 @@ func TestMsTeams_SendSmall(t *testing.T) {
 		expected := &lxHelper.M{
 			"@context":   "https://schema.org/extensions",
 			"@type":      "MessageCard",
-			"themeColor": color,
+			"themeColor": "#ED1B3E",
 			"title":      title,
 			"text":       msg,
 		}
