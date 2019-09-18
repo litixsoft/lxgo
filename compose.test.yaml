@@ -6,7 +6,7 @@ services:
       - .:/root/app
     working_dir: /root/app
     environment:
-      - DB_HOST=lxgo-mongodb
+      - DB_HOST=mongodb://lxgo-mongodb
     links:
       - lxgo-mongodb
     command: >
