@@ -1,11 +1,32 @@
 package lxDb
 
 import (
+	"context"
 	"github.com/globalsign/mgo"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"time"
 )
 
+// GetMongoDbClient, return new mongo driver client
+func GetMongoDbClient(uri string) (*mongo.Client, error) {
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri))
+	if err != nil {
+		return client, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = client.Connect(ctx)
+	if err != nil {
+		return client, err
+	}
+
+	return client, nil
+}
+
+// deprecated, Will be removed in a later version
 // Db struct for mongodb
 type MongoDb struct {
 	Conn       *mgo.Session
