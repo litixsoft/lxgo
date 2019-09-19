@@ -2,6 +2,9 @@ package lxHelper
 
 import "golang.org/x/crypto/bcrypt"
 
+/////////////////////////////////////////////////
+// deprecated, Will be removed in a later version
+/////////////////////////////////////////////////
 // GenerateFromPassword,
 // create a new encrypted password from plain password
 func GenerateFromPassword(plainPwd string) (string, error) {

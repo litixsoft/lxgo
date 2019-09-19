@@ -1,5 +1,65 @@
 package lxDb
 
+import (
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+// FindOptions
+type FindOptions struct {
+	Sort  map[string]int `json:"sort,omitempty"`
+	Skip  int64          `json:"skip"`
+	Limit int64          `json:"limit"`
+}
+
+// ToMongoFindOptions
+func (fo *FindOptions) ToMongoFindOptions() *options.FindOptions {
+	opts := options.Find()
+	opts.SetSkip(fo.Skip)
+	opts.SetLimit(fo.Limit)
+	opts.SetSort(fo.Sort)
+	return opts
+}
+
+// InsertOneResult
+type InsertOneResult struct {
+	InsertedID interface{}
+}
+
+// InsertManyResult
+type InsertManyResult struct {
+	InsertedIDs []interface{}
+}
+
+// UpdateResult
+type UpdateResult struct {
+	MatchedCount  int64
+	ModifiedCount int64
+	UpsertedCount int64
+	UpsertedID    interface{}
+}
+
+// DeleteResult
+type DeleteResult struct {
+	DeletedCount int64 `bson:"n"`
+}
+
+// NotFoundError
+type NotFoundError struct {
+	Message string
+}
+
+// NewApiPostError creates a new HTTPError instance.
+func NewNotFoundError(message ...interface{}) *NotFoundError {
+	he := &NotFoundError{Message: "not found"}
+	if len(message) > 0 {
+		he.Message = message[0].(string)
+	}
+	return he
+}
+
+/////////////////////////////////////////////////
+// deprecated, Will be removed in a later version
+/////////////////////////////////////////////////
 // ChangeInfo holds details about the outcome of an update operation.
 type ChangeInfo struct {
 	Updated int // Number of documents updated

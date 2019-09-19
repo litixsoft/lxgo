@@ -4,6 +4,9 @@ import (
 	"github.com/litixsoft/lxgo/db"
 )
 
+/////////////////////////////////////////////////
+// deprecated, Will be removed in a later version
+/////////////////////////////////////////////////
 type M map[string]interface{}
 
 type ReqByQuery struct {
