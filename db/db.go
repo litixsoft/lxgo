@@ -43,20 +43,6 @@ type DeleteResult struct {
 	DeletedCount int64 `bson:"n"`
 }
 
-// NotFoundError
-type NotFoundError struct {
-	Message string
-}
-
-// NewApiPostError creates a new HTTPError instance.
-func NewNotFoundError(message ...interface{}) *NotFoundError {
-	he := &NotFoundError{Message: "not found"}
-	if len(message) > 0 {
-		he.Message = message[0].(string)
-	}
-	return he
-}
-
 /////////////////////////////////////////////////
 // deprecated, Will be removed in a later version
 /////////////////////////////////////////////////

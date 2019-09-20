@@ -160,9 +160,9 @@ func setupDataNew(db *mongo.Database) []TestUserNew {
 	}
 
 	// Sort test users with id for compare
-	//sort.Slice(users[:], func(i, j int) bool {
-	//	return users[i].Id < users[j].Id
-	//})
+	sort.Slice(users[:], func(i, j int) bool {
+		return users[i].Name < users[j].Name
+	})
 
 	// Return mongo connection
 	return users
@@ -244,7 +244,7 @@ func setupDataNew(db *mongo.Database) []TestUserNew {
 //}
 //
 /////// ############# ############# /////
-func TestMongoBaseRepo(t *testing.T) {
+func TestMongoDbBaseRepo_Find(t *testing.T) {
 	its := assert.New(t)
 
 	client, err := lxDb.GetMongoDbClient(dbHost)
@@ -254,11 +254,7 @@ func TestMongoBaseRepo(t *testing.T) {
 	setupDataNew(db)
 	testUsers := setupDataNew(db)
 
-	// Sort result for compare
-	sort.Slice(testUsers[:], func(i, j int) bool {
-		return testUsers[i].Name < testUsers[j].Name
-	})
-
+	// Create expectUsers for compare result
 	skip := 5
 	limit := 5
 	y := 0
@@ -270,24 +266,20 @@ func TestMongoBaseRepo(t *testing.T) {
 		}
 	}
 
+	// Test the base repo
 	base := lxDb.NewMongoBaseRepo(db)
 	filter := bson.D{}
 	var result []TestUserNew
-	//findOptions := options.Find()
-	//findOptions.SetSkip(5)
-	//findOptions.SetLimit(5)
-	//findOptions.SetSort(bson.M{"name": 1, "email": -1})
+
+	// Find options in other format
 	fo := lxDb.FindOptions{
 		Sort:  map[string]int{"name": 1},
 		Skip:  int64(5),
 		Limit: int64(5),
 	}
 
+	// Find and compare with converted find options
 	err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
 	its.NoError(err)
-	for _, u := range result {
-		t.Log(u)
-	}
-
-	//its.Equal(expectUsers, result)
+	its.Equal(expectUsers, result)
 }
