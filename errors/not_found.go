@@ -1,4 +1,4 @@
-package lxDb
+package lxErrors
 
 // NotFoundError
 type NotFoundError struct {

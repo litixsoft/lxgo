@@ -1,6 +1,7 @@
 package lxDb
 
 import (
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -16,6 +17,14 @@ func (fo *FindOptions) ToMongoFindOptions() *options.FindOptions {
 	opts := options.Find()
 	opts.SetSkip(fo.Skip)
 	opts.SetLimit(fo.Limit)
+	opts.SetSort(fo.Sort)
+	return opts
+}
+
+// ToMongoFindOneOptions
+func (fo *FindOptions) ToMongoFindOneOptions() *options.FindOneOptions {
+	opts := options.FindOne()
+	opts.SetSkip(fo.Skip)
 	opts.SetSort(fo.Sort)
 	return opts
 }
@@ -41,6 +50,17 @@ type UpdateResult struct {
 // DeleteResult
 type DeleteResult struct {
 	DeletedCount int64 `bson:"n"`
+}
+
+// ToBsonDoc, convert interface to bson.D
+func ToBsonDoc(v interface{}) (doc *bson.D, err error) {
+	data, err := bson.Marshal(v)
+	if err != nil {
+		return
+	}
+
+	err = bson.Unmarshal(data, &doc)
+	return
 }
 
 /////////////////////////////////////////////////

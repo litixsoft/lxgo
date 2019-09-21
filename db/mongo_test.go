@@ -251,7 +251,6 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
-	setupDataNew(db)
 	testUsers := setupDataNew(db)
 
 	// Create expectUsers for compare result
@@ -282,4 +281,31 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 	err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
 	its.NoError(err)
 	its.Equal(expectUsers, result)
+}
+
+func TestMongoDbBaseRepo_FindOne(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupDataNew(db)
+	testSkip := int64(5)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	// Find options in other format
+	fo := lxDb.FindOptions{
+		Sort: map[string]int{"name": 1},
+		Skip: testSkip,
+	}
+
+	// Find and compare with converted find options
+	filter := bson.D{}
+	var result TestUserNew
+	err = base.FindOne(TestCollection, filter, &result, fo.ToMongoFindOneOptions())
+	its.NoError(err)
+	its.Equal(testUsers[testSkip], result)
 }

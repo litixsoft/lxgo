@@ -5,6 +5,7 @@ import (
 	"github.com/globalsign/mgo"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
 	"time"
 )
@@ -15,6 +16,7 @@ const (
 
 type IMongoDBBaseRepo interface {
 	Find(collection string, filter interface{}, result interface{}, args ...interface{}) error
+	FindOne(collection string, filter interface{}, result interface{}, args ...interface{}) error
 }
 
 type mongoDbBaseRepo struct {
@@ -22,15 +24,27 @@ type mongoDbBaseRepo struct {
 }
 
 // GetMongoDbClient, return new mongo driver client
-func GetMongoDbClient(uri string) (*mongo.Client, error) {
+func GetMongoDbClient(uri string, timeout ...time.Duration) (*mongo.Client, error) {
+	// Timeout
+	to := DefaultTimeout
+	if len(timeout) > 0 {
+		to = timeout[0]
+	}
+
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri))
 	if err != nil {
 		return client, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), to)
 	defer cancel()
 	err = client.Connect(ctx)
 	if err != nil {
+		return client, err
+	}
+
+	// Ping MongoDB
+	ctx, _ = context.WithTimeout(context.Background(), to)
+	if err = client.Ping(ctx, readpref.Primary()); err != nil {
 		return client, err
 	}
 
@@ -51,9 +65,9 @@ func (repo *mongoDbBaseRepo) Find(collection string, filter interface{}, result 
 	for i := 0; i < len(args); i++ {
 		switch args[i].(type) {
 		case time.Duration:
-			timeout = args[0].(time.Duration)
+			timeout = args[i].(time.Duration)
 		case *options.FindOptions:
-			opts = args[0].(*options.FindOptions)
+			opts = args[i].(*options.FindOptions)
 		}
 	}
 
@@ -66,6 +80,27 @@ func (repo *mongoDbBaseRepo) Find(collection string, filter interface{}, result 
 	}
 
 	return cur.All(ctx, result)
+}
+
+// Find, find all matched by filter
+func (repo *mongoDbBaseRepo) FindOne(collection string, filter interface{}, result interface{}, args ...interface{}) error {
+	// Default values
+	timeout := DefaultTimeout
+	opts := &options.FindOneOptions{}
+
+	for i := 0; i < len(args); i++ {
+		switch args[i].(type) {
+		case time.Duration:
+			timeout = args[i].(time.Duration)
+		case *options.FindOneOptions:
+			opts = args[i].(*options.FindOneOptions)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return repo.db.Collection(collection).FindOne(ctx, filter, opts).Decode(result)
 }
 
 /////////////////////////////////////////////////

@@ -1,7 +1,7 @@
-package lxDb_test
+package lxErrors_test
 
 import (
-	lxDb "github.com/litixsoft/lxgo/db"
+	lxErrors "github.com/litixsoft/lxgo/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -9,12 +9,12 @@ import (
 func TestNotFoundError_Error(t *testing.T) {
 	its := assert.New(t)
 
-	err := lxDb.NewNotFoundError()
-	err2 := lxDb.NewNotFoundError("test message")
+	err := lxErrors.NewNotFoundError()
+	err2 := lxErrors.NewNotFoundError("test message")
 
 	// Check types
-	its.IsType(&lxDb.NotFoundError{}, err)
-	its.IsType(&lxDb.NotFoundError{}, err2)
+	its.IsType(&lxErrors.NotFoundError{}, err)
+	its.IsType(&lxErrors.NotFoundError{}, err2)
 
 	// Check values
 	its.Equal("not found", err.Error())
