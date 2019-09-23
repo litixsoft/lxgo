@@ -8,7 +8,7 @@ services:
 -language: go
 
 before_install:
-  - docker pull golang:1.12
+  - docker pull golang:1.13
   - docker pull mongo:4.0
 
 script:
