@@ -15,9 +15,11 @@ const (
 	DefaultTimeout = time.Second * 30
 )
 
-type mongoDbBaseRepo struct {
-	db *mongo.Database
+type mongoBaseRepo struct {
+	collection *mongo.Collection
 }
+
+type AuditFn func(user interface{})
 
 // GetMongoDbClient, return new mongo driver client
 func GetMongoDbClient(uri string) (client *mongo.Client, err error) {
@@ -39,12 +41,12 @@ func GetMongoDbClient(uri string) (client *mongo.Client, err error) {
 }
 
 // NewMongoBaseRepo, return base repo instance
-func NewMongoBaseRepo(db *mongo.Database) IBaseRepo {
-	return &mongoDbBaseRepo{db: db}
+func NewMongoBaseRepo(collection *mongo.Collection) IBaseRepo {
+	return &mongoBaseRepo{collection: collection}
 }
 
 // InsertOne inserts a single document into the collection.
-func (repo *mongoDbBaseRepo) InsertOne(collection string, doc interface{}, args ...interface{}) (interface{}, error) {
+func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (interface{}, error) {
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
 
@@ -60,7 +62,7 @@ func (repo *mongoDbBaseRepo) InsertOne(collection string, doc interface{}, args 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	res, err := repo.db.Collection(collection).InsertOne(ctx, doc, opts)
+	res, err := repo.collection.InsertOne(ctx, doc, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func (repo *mongoDbBaseRepo) InsertOne(collection string, doc interface{}, args 
 }
 
 // InsertMany inserts the provided documents.
-func (repo *mongoDbBaseRepo) InsertMany(collection string, docs []interface{}, args ...interface{}) ([]interface{}, error) {
+func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) ([]interface{}, error) {
 	timeout := DefaultTimeout
 	opts := &options.InsertManyOptions{}
 
@@ -85,7 +87,7 @@ func (repo *mongoDbBaseRepo) InsertMany(collection string, docs []interface{}, a
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	res, err := repo.db.Collection(collection).InsertMany(ctx, docs, opts)
+	res, err := repo.collection.InsertMany(ctx, docs, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +97,7 @@ func (repo *mongoDbBaseRepo) InsertMany(collection string, docs []interface{}, a
 
 // CountDocuments gets the number of documents matching the filter.
 // For a fast count of the total documents in a collection see EstimatedDocumentCount.
-func (repo *mongoDbBaseRepo) CountDocuments(collection string, filter interface{}, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) CountDocuments(filter interface{}, args ...interface{}) (int64, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.CountOptions{}
@@ -112,11 +114,11 @@ func (repo *mongoDbBaseRepo) CountDocuments(collection string, filter interface{
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return repo.db.Collection(collection).CountDocuments(ctx, filter, opts)
+	return repo.collection.CountDocuments(ctx, filter, opts)
 }
 
 // EstimatedDocumentCount gets an estimate of the count of documents in a collection using collection metadata.
-func (repo *mongoDbBaseRepo) EstimatedDocumentCount(collection string, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) EstimatedDocumentCount(args ...interface{}) (int64, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.EstimatedDocumentCountOptions{}
@@ -133,11 +135,11 @@ func (repo *mongoDbBaseRepo) EstimatedDocumentCount(collection string, args ...i
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return repo.db.Collection(collection).EstimatedDocumentCount(ctx, opts)
+	return repo.collection.EstimatedDocumentCount(ctx, opts)
 }
 
 // Find, find all matched by filter
-func (repo *mongoDbBaseRepo) Find(collection string, filter interface{}, result interface{}, args ...interface{}) error {
+func (repo *mongoBaseRepo) Find(filter interface{}, result interface{}, args ...interface{}) error {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.FindOptions{}
@@ -154,7 +156,7 @@ func (repo *mongoDbBaseRepo) Find(collection string, filter interface{}, result 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cur, err := repo.db.Collection(collection).Find(ctx, filter, opts)
+	cur, err := repo.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return err
 	}
@@ -163,7 +165,7 @@ func (repo *mongoDbBaseRepo) Find(collection string, filter interface{}, result 
 }
 
 // Find, find all matched by filter
-func (repo *mongoDbBaseRepo) FindOne(collection string, filter interface{}, result interface{}, args ...interface{}) error {
+func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args ...interface{}) error {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.FindOneOptions{}
@@ -181,7 +183,7 @@ func (repo *mongoDbBaseRepo) FindOne(collection string, filter interface{}, resu
 	defer cancel()
 
 	// Find and convert no documents error
-	err := repo.db.Collection(collection).FindOne(ctx, filter, opts).Decode(result)
+	err := repo.collection.FindOne(ctx, filter, opts).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return lxErrors.NewNotFoundError(err.Error())
@@ -194,7 +196,7 @@ func (repo *mongoDbBaseRepo) FindOne(collection string, filter interface{}, resu
 }
 
 // UpdateOne updates a single document in the collection.
-func (repo *mongoDbBaseRepo) UpdateOne(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
+func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
@@ -213,7 +215,7 @@ func (repo *mongoDbBaseRepo) UpdateOne(collection string, filter interface{}, up
 
 	// Return UpdateResult
 	ret := new(UpdateResult)
-	res, err := repo.db.Collection(collection).UpdateOne(ctx, filter, update, opts)
+	res, err := repo.collection.UpdateOne(ctx, filter, update, opts)
 
 	// Convert to UpdateResult
 	if res != nil {
@@ -227,7 +229,7 @@ func (repo *mongoDbBaseRepo) UpdateOne(collection string, filter interface{}, up
 }
 
 // UpdateMany updates multiple documents in the collection.
-func (repo *mongoDbBaseRepo) UpdateMany(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
+func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
@@ -246,7 +248,7 @@ func (repo *mongoDbBaseRepo) UpdateMany(collection string, filter interface{}, u
 
 	// Return UpdateResult
 	ret := new(UpdateResult)
-	res, err := repo.db.Collection(collection).UpdateMany(ctx, filter, update, opts)
+	res, err := repo.collection.UpdateMany(ctx, filter, update, opts)
 
 	// Convert to UpdateResult
 	if res != nil {
@@ -260,7 +262,7 @@ func (repo *mongoDbBaseRepo) UpdateMany(collection string, filter interface{}, u
 }
 
 // DeleteOne deletes a single document from the collection.
-func (repo *mongoDbBaseRepo) DeleteOne(collection string, filter interface{}, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (int64, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.DeleteOptions{}
@@ -279,7 +281,7 @@ func (repo *mongoDbBaseRepo) DeleteOne(collection string, filter interface{}, ar
 
 	// Return DeletedCount
 	count := int64(0)
-	res, err := repo.db.Collection(collection).DeleteOne(ctx, filter, opts)
+	res, err := repo.collection.DeleteOne(ctx, filter, opts)
 	if res != nil {
 		count = res.DeletedCount
 	}
@@ -288,7 +290,7 @@ func (repo *mongoDbBaseRepo) DeleteOne(collection string, filter interface{}, ar
 }
 
 // DeleteMany deletes multiple documents from the collection.
-func (repo *mongoDbBaseRepo) DeleteMany(collection string, filter interface{}, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (int64, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.DeleteOptions{}
@@ -307,7 +309,7 @@ func (repo *mongoDbBaseRepo) DeleteMany(collection string, filter interface{}, a
 
 	// Return DeletedCount
 	count := int64(0)
-	res, err := repo.db.Collection(collection).DeleteMany(ctx, filter, opts)
+	res, err := repo.collection.DeleteMany(ctx, filter, opts)
 	if res != nil {
 		count = res.DeletedCount
 	}

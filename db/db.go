@@ -6,16 +6,16 @@ import (
 )
 
 type IBaseRepo interface {
-	InsertOne(collection string, doc interface{}, args ...interface{}) (interface{}, error)
-	InsertMany(collection string, docs []interface{}, args ...interface{}) ([]interface{}, error)
-	CountDocuments(collection string, filter interface{}, args ...interface{}) (int64, error)
-	EstimatedDocumentCount(collection string, args ...interface{}) (int64, error)
-	Find(collection string, filter interface{}, result interface{}, args ...interface{}) error
-	FindOne(collection string, filter interface{}, result interface{}, args ...interface{}) error
-	UpdateOne(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
-	UpdateMany(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
-	DeleteOne(collection string, filter interface{}, args ...interface{}) (int64, error)
-	DeleteMany(collection string, filter interface{}, args ...interface{}) (int64, error)
+	InsertOne(doc interface{}, args ...interface{}) (interface{}, error)
+	InsertMany(docs []interface{}, args ...interface{}) ([]interface{}, error)
+	CountDocuments(filter interface{}, args ...interface{}) (int64, error)
+	EstimatedDocumentCount(args ...interface{}) (int64, error)
+	Find(filter interface{}, result interface{}, args ...interface{}) error
+	FindOne(filter interface{}, result interface{}, args ...interface{}) error
+	UpdateOne(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	DeleteOne(filter interface{}, args ...interface{}) (int64, error)
+	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
 }
 
 // FindOptions

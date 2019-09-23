@@ -271,14 +271,14 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	}
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
-	res, err := base.InsertOne(TestCollection, testUser)
+	base := lxDb.NewMongoBaseRepo(collection)
+	res, err := base.InsertOne(testUser)
 	its.NoError(err)
 
 	// Check insert result id
 	var checkUser TestUser
 	filter := bson.D{{"_id", res.(primitive.ObjectID)}}
-	its.NoError(base.FindOne(TestCollection, filter, &checkUser))
+	its.NoError(base.FindOne(filter, &checkUser))
 
 	its.Equal(testUser.Name, checkUser.Name)
 	its.Equal(testUser.Email, checkUser.Email)
@@ -305,15 +305,15 @@ func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
 	}
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
-	res, err := base.InsertMany(TestCollection, testUsers)
+	base := lxDb.NewMongoBaseRepo(collection)
+	res, err := base.InsertMany(testUsers)
 	its.NoError(err)
 	its.Equal(5, len(res))
 
 	// Find and compare
 	var checkUsers []TestUser
 	filter := bson.D{}
-	err = base.Find(TestCollection, filter, &checkUsers)
+	err = base.Find(filter, &checkUsers)
 	its.NoError(err)
 
 	// Check users
@@ -325,7 +325,7 @@ func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
 	// Check ids
 	for _, id := range res {
 		var res TestUser
-		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", id}}, &res))
+		its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
 		its.Equal(id, res.Id)
 	}
 }
@@ -340,7 +340,7 @@ func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
 	setupDataNew(db)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 	// is 13
 	filter := bson.D{{"gender", "Female"}}
 
@@ -352,7 +352,7 @@ func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
 	}
 
 	// Get count
-	res, err := base.CountDocuments(TestCollection, filter, fo.ToMongoCountOptions())
+	res, err := base.CountDocuments(filter, fo.ToMongoCountOptions())
 	its.NoError(err)
 	its.Equal(int64(9), res)
 }
@@ -367,10 +367,10 @@ func TestMongoDbBaseRepo_EstimatedDocumentCount(t *testing.T) {
 	testUsers := setupDataNew(db)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	// Get count
-	res, err := base.EstimatedDocumentCount(TestCollection)
+	res, err := base.EstimatedDocumentCount()
 	its.NoError(err)
 	its.Equal(int64(len(testUsers)), res)
 }
@@ -403,7 +403,7 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 	}
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	t.Run("with options", func(t *testing.T) {
 		// Find options in other format
@@ -416,7 +416,7 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 		// Find and compare with converted find options
 		filter := bson.D{}
 		var result []TestUser
-		err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
+		err = base.Find(filter, &result, fo.ToMongoFindOptions())
 		its.NoError(err)
 		its.Equal(expectUsers, result)
 	})
@@ -427,7 +427,7 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 		}
 		filter := bson.D{{"gender", "Female"}}
 		var result []TestUser
-		err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
+		err = base.Find(filter, &result, fo.ToMongoFindOptions())
 		its.NoError(err)
 		its.Equal(expectFemale, result)
 	})
@@ -444,7 +444,7 @@ func TestMongoDbBaseRepo_FindOne(t *testing.T) {
 	testSkip := int64(5)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	t.Run("with options", func(t *testing.T) {
 		// Find options in other format
@@ -456,21 +456,21 @@ func TestMongoDbBaseRepo_FindOne(t *testing.T) {
 		// Find and compare with converted find options
 		filter := bson.D{}
 		var result TestUser
-		err = base.FindOne(TestCollection, filter, &result, fo.ToMongoFindOneOptions())
+		err = base.FindOne(filter, &result, fo.ToMongoFindOneOptions())
 		its.NoError(err)
 		its.Equal(testUsers[testSkip], result)
 	})
 	t.Run("with filter", func(t *testing.T) {
 		filter := bson.D{{"email", testUsers[testSkip].Email}}
 		var result TestUser
-		err = base.FindOne(TestCollection, filter, &result)
+		err = base.FindOne(filter, &result)
 		its.NoError(err)
 		its.Equal(testUsers[testSkip], result)
 	})
 	t.Run("not found error", func(t *testing.T) {
 		filter := bson.D{{"email", "unknown@email"}}
 		var result TestUser
-		err = base.FindOne(TestCollection, filter, &result)
+		err = base.FindOne(filter, &result)
 		its.Error(err)
 		its.IsType(&lxErrors.NotFoundError{}, err)
 	})
@@ -486,7 +486,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 	testUsers := setupDataNew(db)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	t.Run("PUT", func(t *testing.T) {
 		// Update testUser
@@ -495,7 +495,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", tu}}
-		res, err := base.UpdateOne(TestCollection, filter, update)
+		res, err := base.UpdateOne(filter, update)
 		its.NoError(err)
 		its.Equal(int64(1), res.MatchedCount)
 		its.Equal(int64(1), res.ModifiedCount)
@@ -504,7 +504,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		// Check with Find
 		var check TestUser
-		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", tu.Id}}, &check))
+		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
 		its.Equal(tu.Name, check.Name)
 	})
 	t.Run("PATCH", func(t *testing.T) {
@@ -514,7 +514,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
-		res, err := base.UpdateOne(TestCollection, filter, update)
+		res, err := base.UpdateOne(filter, update)
 		its.NoError(err)
 		its.Equal(int64(1), res.MatchedCount)
 		its.Equal(int64(1), res.ModifiedCount)
@@ -523,7 +523,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		// Check with Find
 		var check TestUser
-		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", tu.Id}}, &check))
+		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
 		its.Equal(newName, check.Name)
 	})
 }
@@ -538,14 +538,14 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 	setupDataNew(db)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	// All females to active, should be 13
 	filter := bson.D{{"gender", "Female"}}
 	update := bson.D{{"$set",
 		bson.D{{"is_active", true}},
 	}}
-	res, err := base.UpdateMany(TestCollection, filter, update)
+	res, err := base.UpdateMany(filter, update)
 	its.NoError(err)
 	// 13 female in db
 	its.Equal(int64(13), res.MatchedCount)
@@ -556,7 +556,7 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 
 	// Check with Count
 	filter = bson.D{{"gender", "Female"}, {"is_active", true}}
-	count, err := base.CountDocuments(TestCollection, filter)
+	count, err := base.CountDocuments(filter)
 	its.NoError(err)
 	its.Equal(int64(13), count)
 }
@@ -572,16 +572,16 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 	user := testUsers[10]
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	filter := bson.D{{"_id", user.Id}}
-	res, err := base.DeleteOne(TestCollection, filter)
+	res, err := base.DeleteOne(filter)
 	its.NoError(err)
 	its.Equal(int64(1), res)
 
 	// Check with Find
 	var check TestUser
-	err = base.FindOne(TestCollection, bson.D{{"_id", user.Id}}, &check)
+	err = base.FindOne(bson.D{{"_id", user.Id}}, &check)
 	its.Error(err)
 	its.IsType(&lxErrors.NotFoundError{}, err)
 }
@@ -596,17 +596,17 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 	setupDataNew(db)
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db)
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
 	// All Males, should be 12
 	filter := bson.D{{"gender", "Male"}}
-	res, err := base.DeleteMany(TestCollection, filter)
+	res, err := base.DeleteMany(filter)
 	its.NoError(err)
 	its.Equal(int64(12), res)
 
 	// Check with Count
 	filter = bson.D{{"gender", "Male"}}
-	count, err := base.CountDocuments(TestCollection, filter)
+	count, err := base.CountDocuments(filter)
 	its.NoError(err)
 	its.Equal(int64(0), count)
 }
