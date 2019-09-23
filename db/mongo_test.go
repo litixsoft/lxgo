@@ -3,7 +3,9 @@ package lxDb_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	lxDb "github.com/litixsoft/lxgo/db"
+	lxErrors "github.com/litixsoft/lxgo/errors"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -41,19 +43,18 @@ import (
 //	IsActive bool          `json:"is_active" bson:"is_active"`
 //}
 
-type TestUserNew struct {
-	Id       primitive.ObjectID `json:"id" bson:"_id"`
-	Name     string             `json:"name" bson:"name"`
-	Gender   string             `json:"gender" bson:"gender"`
+type TestUser struct {
+	Id       primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	Name     string             `json:"name,omitempty" bson:"name,omitempty"`
+	Gender   string             `json:"gender,omitempty" bson:"gender,omitempty"`
 	Email    string             `json:"email" bson:"email"`
-	IsActive bool               `json:"is_active" bson:"is_active"`
+	IsActive bool               `json:"is_active,omitempty" bson:"is_active"`
 }
 
 const (
 	TestDbName     = "lxgo_test"
 	TestCollection = "users"
 	FixturesPath   = "fixtures/users.test.json"
-	T10            = time.Second * 10
 )
 
 var (
@@ -126,7 +127,7 @@ func init() {
 //}
 //
 // setupData, create the test data and prepare the database
-func setupDataNew(db *mongo.Database) []TestUserNew {
+func setupDataNew(db *mongo.Database) []TestUser {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
@@ -143,7 +144,7 @@ func setupDataNew(db *mongo.Database) []TestUserNew {
 	}
 
 	// Convert
-	var users []TestUserNew
+	var users []TestUser
 	if err := json.Unmarshal(raw, &users); err != nil {
 		log.Fatal(err)
 	}
@@ -244,6 +245,136 @@ func setupDataNew(db *mongo.Database) []TestUserNew {
 //}
 //
 /////// ############# ############# /////
+func TestGetMongoDbClient(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+	its.IsType(&mongo.Client{}, client)
+}
+
+func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	lxErrors.HandlePanicErr(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Drop for test
+	its.NoError(collection.Drop(context.Background()))
+
+	testUser := TestUser{
+		Name:  "TestName",
+		Email: "test@test.de",
+	}
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+	res, err := base.InsertOne(TestCollection, testUser)
+	its.NoError(err)
+
+	// Check insert result id
+	var checkUser TestUser
+	filter := bson.D{{"_id", res.(primitive.ObjectID)}}
+	its.NoError(base.FindOne(TestCollection, filter, &checkUser))
+
+	its.Equal(testUser.Name, checkUser.Name)
+	its.Equal(testUser.Email, checkUser.Email)
+	its.Equal(testUser.IsActive, checkUser.IsActive)
+}
+
+func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	lxErrors.HandlePanicErr(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Drop for test
+	its.NoError(collection.Drop(context.Background()))
+
+	testUsers := make([]interface{}, 0)
+	for i := 0; i < 5; i++ {
+		name := fmt.Sprintf("TestName%d", i)
+		email := fmt.Sprintf("test%d@test.de", i)
+		testUsers = append(testUsers, TestUser{Name: name, Email: email})
+	}
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+	res, err := base.InsertMany(TestCollection, testUsers)
+	its.NoError(err)
+	its.Equal(5, len(res))
+
+	// Find and compare
+	var checkUsers []TestUser
+	filter := bson.D{}
+	err = base.Find(TestCollection, filter, &checkUsers)
+	its.NoError(err)
+
+	// Check users
+	for i, v := range checkUsers {
+		its.Equal(testUsers[i].(TestUser).Name, v.Name)
+		its.Equal(testUsers[i].(TestUser).Email, v.Email)
+	}
+
+	// Check ids
+	for _, id := range res {
+		var res TestUser
+		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", id}}, &res))
+		its.Equal(id, res.Id)
+	}
+}
+
+func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	setupDataNew(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+	// is 13
+	filter := bson.D{{"gender", "Female"}}
+
+	// Find options in other format
+	// is 9
+	fo := lxDb.FindOptions{
+		Skip:  int64(4),
+		Limit: int64(10),
+	}
+
+	// Get count
+	res, err := base.CountDocuments(TestCollection, filter, fo.ToMongoCountOptions())
+	its.NoError(err)
+	its.Equal(int64(9), res)
+}
+
+func TestMongoDbBaseRepo_EstimatedDocumentCount(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupDataNew(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	// Get count
+	res, err := base.EstimatedDocumentCount(TestCollection)
+	its.NoError(err)
+	its.Equal(int64(len(testUsers)), res)
+}
+
 func TestMongoDbBaseRepo_Find(t *testing.T) {
 	its := assert.New(t)
 
@@ -257,8 +388,14 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 	skip := 5
 	limit := 5
 	y := 0
-	var expectUsers []TestUserNew
-	for i, _ := range testUsers {
+	var (
+		expectUsers  []TestUser
+		expectFemale []TestUser
+	)
+	for i := range testUsers {
+		if testUsers[i].Gender == "Female" {
+			expectFemale = append(expectFemale, testUsers[i])
+		}
 		if i > (skip-1) && y < limit {
 			expectUsers = append(expectUsers, testUsers[i])
 			y++
@@ -267,20 +404,33 @@ func TestMongoDbBaseRepo_Find(t *testing.T) {
 
 	// Test the base repo
 	base := lxDb.NewMongoBaseRepo(db)
-	filter := bson.D{}
-	var result []TestUserNew
 
-	// Find options in other format
-	fo := lxDb.FindOptions{
-		Sort:  map[string]int{"name": 1},
-		Skip:  int64(5),
-		Limit: int64(5),
-	}
+	t.Run("with options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxDb.FindOptions{
+			Sort:  map[string]int{"name": 1},
+			Skip:  int64(5),
+			Limit: int64(5),
+		}
 
-	// Find and compare with converted find options
-	err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
-	its.NoError(err)
-	its.Equal(expectUsers, result)
+		// Find and compare with converted find options
+		filter := bson.D{}
+		var result []TestUser
+		err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
+		its.NoError(err)
+		its.Equal(expectUsers, result)
+	})
+	t.Run("with filter and options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxDb.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+		filter := bson.D{{"gender", "Female"}}
+		var result []TestUser
+		err = base.Find(TestCollection, filter, &result, fo.ToMongoFindOptions())
+		its.NoError(err)
+		its.Equal(expectFemale, result)
+	})
 }
 
 func TestMongoDbBaseRepo_FindOne(t *testing.T) {
@@ -296,16 +446,167 @@ func TestMongoDbBaseRepo_FindOne(t *testing.T) {
 	// Test the base repo
 	base := lxDb.NewMongoBaseRepo(db)
 
-	// Find options in other format
-	fo := lxDb.FindOptions{
-		Sort: map[string]int{"name": 1},
-		Skip: testSkip,
-	}
+	t.Run("with options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxDb.FindOptions{
+			Sort: map[string]int{"name": 1},
+			Skip: testSkip,
+		}
 
-	// Find and compare with converted find options
-	filter := bson.D{}
-	var result TestUserNew
-	err = base.FindOne(TestCollection, filter, &result, fo.ToMongoFindOneOptions())
+		// Find and compare with converted find options
+		filter := bson.D{}
+		var result TestUser
+		err = base.FindOne(TestCollection, filter, &result, fo.ToMongoFindOneOptions())
+		its.NoError(err)
+		its.Equal(testUsers[testSkip], result)
+	})
+	t.Run("with filter", func(t *testing.T) {
+		filter := bson.D{{"email", testUsers[testSkip].Email}}
+		var result TestUser
+		err = base.FindOne(TestCollection, filter, &result)
+		its.NoError(err)
+		its.Equal(testUsers[testSkip], result)
+	})
+	t.Run("not found error", func(t *testing.T) {
+		filter := bson.D{{"email", "unknown@email"}}
+		var result TestUser
+		err = base.FindOne(TestCollection, filter, &result)
+		its.Error(err)
+		its.IsType(&lxErrors.NotFoundError{}, err)
+	})
+}
+
+func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
 	its.NoError(err)
-	its.Equal(testUsers[testSkip], result)
+
+	db := client.Database(TestDbName)
+	testUsers := setupDataNew(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	t.Run("PUT", func(t *testing.T) {
+		// Update testUser
+		tu := testUsers[4]
+		tu.Name = "Is Updated"
+
+		filter := bson.D{{"_id", tu.Id}}
+		update := bson.D{{"$set", tu}}
+		res, err := base.UpdateOne(TestCollection, filter, update)
+		its.NoError(err)
+		its.Equal(int64(1), res.MatchedCount)
+		its.Equal(int64(1), res.ModifiedCount)
+		its.Equal(int64(0), res.UpsertedCount)
+		its.Nil(res.UpsertedID)
+
+		// Check with Find
+		var check TestUser
+		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", tu.Id}}, &check))
+		its.Equal(tu.Name, check.Name)
+	})
+	t.Run("PATCH", func(t *testing.T) {
+		// Update testUser
+		tu := testUsers[5]
+		newName := "Is Updated"
+
+		filter := bson.D{{"_id", tu.Id}}
+		update := bson.D{{"$set", bson.D{{"name", newName}}}}
+		res, err := base.UpdateOne(TestCollection, filter, update)
+		its.NoError(err)
+		its.Equal(int64(1), res.MatchedCount)
+		its.Equal(int64(1), res.ModifiedCount)
+		its.Equal(int64(0), res.UpsertedCount)
+		its.Nil(res.UpsertedID)
+
+		// Check with Find
+		var check TestUser
+		its.NoError(base.FindOne(TestCollection, bson.D{{"_id", tu.Id}}, &check))
+		its.Equal(newName, check.Name)
+	})
+}
+
+func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	setupDataNew(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	// All females to active, should be 13
+	filter := bson.D{{"gender", "Female"}}
+	update := bson.D{{"$set",
+		bson.D{{"is_active", true}},
+	}}
+	res, err := base.UpdateMany(TestCollection, filter, update)
+	its.NoError(err)
+	// 13 female in db
+	its.Equal(int64(13), res.MatchedCount)
+	// 8 inactive female
+	its.Equal(int64(8), res.ModifiedCount)
+	its.Equal(int64(0), res.UpsertedCount)
+	its.Nil(res.UpsertedID)
+
+	// Check with Count
+	filter = bson.D{{"gender", "Female"}, {"is_active", true}}
+	count, err := base.CountDocuments(TestCollection, filter)
+	its.NoError(err)
+	its.Equal(int64(13), count)
+}
+
+func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupDataNew(db)
+	user := testUsers[10]
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	filter := bson.D{{"_id", user.Id}}
+	res, err := base.DeleteOne(TestCollection, filter)
+	its.NoError(err)
+	its.Equal(int64(1), res)
+
+	// Check with Find
+	var check TestUser
+	err = base.FindOne(TestCollection, bson.D{{"_id", user.Id}}, &check)
+	its.Error(err)
+	its.IsType(&lxErrors.NotFoundError{}, err)
+}
+
+func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	setupDataNew(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db)
+
+	// All Males, should be 12
+	filter := bson.D{{"gender", "Male"}}
+	res, err := base.DeleteMany(TestCollection, filter)
+	its.NoError(err)
+	its.Equal(int64(12), res)
+
+	// Check with Count
+	filter = bson.D{{"gender", "Male"}}
+	count, err := base.CountDocuments(TestCollection, filter)
+	its.NoError(err)
+	its.Equal(int64(0), count)
 }

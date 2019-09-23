@@ -5,6 +5,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type IBaseRepo interface {
+	InsertOne(collection string, doc interface{}, args ...interface{}) (interface{}, error)
+	InsertMany(collection string, docs []interface{}, args ...interface{}) ([]interface{}, error)
+	CountDocuments(collection string, filter interface{}, args ...interface{}) (int64, error)
+	EstimatedDocumentCount(collection string, args ...interface{}) (int64, error)
+	Find(collection string, filter interface{}, result interface{}, args ...interface{}) error
+	FindOne(collection string, filter interface{}, result interface{}, args ...interface{}) error
+	UpdateOne(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	UpdateMany(collection string, filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	DeleteOne(collection string, filter interface{}, args ...interface{}) (int64, error)
+	DeleteMany(collection string, filter interface{}, args ...interface{}) (int64, error)
+}
+
 // FindOptions
 type FindOptions struct {
 	Sort  map[string]int `json:"sort,omitempty"`
@@ -29,14 +42,12 @@ func (fo *FindOptions) ToMongoFindOneOptions() *options.FindOneOptions {
 	return opts
 }
 
-// InsertOneResult
-type InsertOneResult struct {
-	InsertedID interface{}
-}
-
-// InsertManyResult
-type InsertManyResult struct {
-	InsertedIDs []interface{}
+// ToMongoCountOptions
+func (fo *FindOptions) ToMongoCountOptions() *options.CountOptions {
+	opts := options.Count()
+	opts.SetSkip(fo.Skip)
+	opts.SetLimit(fo.Limit)
+	return opts
 }
 
 // UpdateResult
@@ -45,11 +56,6 @@ type UpdateResult struct {
 	ModifiedCount int64
 	UpsertedCount int64
 	UpsertedID    interface{}
-}
-
-// DeleteResult
-type DeleteResult struct {
-	DeletedCount int64 `bson:"n"`
 }
 
 // ToBsonDoc, convert interface to bson.D
