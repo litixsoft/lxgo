@@ -16,13 +16,35 @@ const (
 	DefaultTimeout = time.Second * 30
 )
 
-type mongoBaseRepo struct {
-	collection *mongo.Collection
+// AuditFn func for audit type
+type IAuditBaseRepo interface {
+	Insert(authUser interface{}, collection string, data interface{}) error
 }
 
-type AuditFn func(user interface{})
+// AuthAudit, auth user for audit
 type AuthAudit struct {
 	User interface{}
+}
+
+type mongoBaseRepo struct {
+	collection *mongo.Collection
+	audit      IAuditBaseRepo
+}
+
+// NewMongoBaseRepo, return base repo instance
+func NewMongoBaseRepo(collection *mongo.Collection, auditBaseRepo ...IAuditBaseRepo) IBaseRepo {
+	// Default audit is nil
+	var audit IAuditBaseRepo
+
+	// Optional audit in args
+	if len(auditBaseRepo) > 0 {
+		audit = auditBaseRepo[0]
+	}
+
+	return &mongoBaseRepo{
+		collection: collection,
+		audit:      audit,
+	}
 }
 
 // GetMongoDbClient, return new mongo driver client
@@ -44,16 +66,12 @@ func GetMongoDbClient(uri string) (client *mongo.Client, err error) {
 	return client, nil
 }
 
-// NewMongoBaseRepo, return base repo instance
-func NewMongoBaseRepo(collection *mongo.Collection) IBaseRepo {
-	return &mongoBaseRepo{collection: collection}
-}
-
 // InsertOne inserts a single document into the collection.
 func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (interface{}, error) {
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
 	var authUser interface{}
+	done := make(chan bool)
 
 	for i := 0; i < len(args); i++ {
 		switch args[i].(type) {
@@ -63,6 +81,8 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			opts = args[i].(*options.InsertOneOptions)
 		case *AuthAudit:
 			authUser = args[i].(*AuthAudit).User
+		case chan bool:
+			done = args[i].(chan bool)
 		}
 	}
 
@@ -74,33 +94,24 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 		return nil, err
 	}
 
-	if authUser != nil {
-		go func(insertId interface{}, collection *mongo.Collection) {
-			id, ok := insertId.(primitive.ObjectID)
-			if !ok {
-				log.Println("insert audit error, can't convert id")
-				return
-			}
+	if authUser != nil && repo.audit != nil {
+		// Start audit async
+		go func(id primitive.ObjectID) {
+			defer func() {
+				done <- true
+			}()
 
-			log.Println("authUser:", authUser)
-			log.Println("db:", collection.Database().Name())
-			log.Println("collection:", collection.Name())
-			log.Println("action:", "insert")
-			log.Println("id:", id)
-
-			log.Println("Ich suche")
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			var res bson.D
-			err := collection.FindOne(ctx, bson.D{{"_id", id}}).Decode(&res)
-			if err != nil {
+			var res bson.M
+			if err := repo.FindOne(bson.D{{"_id", id}}, &res); err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				return
 			}
-			log.Println("kein fehler")
-			log.Println("data:", res)
-		}(res.InsertedID, repo.collection)
+
+			if err := repo.audit.Insert(authUser, repo.collection.Name(), res); err != nil {
+				log.Printf("insert audit error:%v\n", err)
+				return
+			}
+		}(res.InsertedID.(primitive.ObjectID))
 	}
 
 	return res.InsertedID, nil

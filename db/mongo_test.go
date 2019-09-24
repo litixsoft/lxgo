@@ -245,6 +245,17 @@ func setupDataNew(db *mongo.Database) []TestUser {
 //}
 //
 /////// ############# ############# /////
+// TestLogger
+type TestAuditLogger struct{}
+
+func (l *TestAuditLogger) Insert(authUser interface{}, collection string, data interface{}) error {
+	log.Printf("authUser: %v\n", authUser)
+	log.Printf("collection: %s\n", collection)
+	log.Printf("data: %v\n", data)
+
+	return nil
+}
+
 func TestGetMongoDbClient(t *testing.T) {
 	its := assert.New(t)
 
@@ -271,10 +282,17 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	}
 
 	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(collection)
+	auditBaseRepo := &TestAuditLogger{}
+	base := lxDb.NewMongoBaseRepo(collection, auditBaseRepo)
 	au := lxDb.AuthAudit{User: bson.M{"name": "Timo Liebetrau"}}
-	res, err := base.InsertOne(testUser, &au)
-	time.Sleep(time.Second * 100)
+
+	// Channel for close
+	done := make(chan bool)
+	res, err := base.InsertOne(testUser, &au, done)
+
+	// Wait for close channel
+	<-done
+
 	its.NoError(err)
 
 	// Check insert result id
