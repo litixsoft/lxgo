@@ -272,7 +272,9 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 
 	// Test the base repo
 	base := lxDb.NewMongoBaseRepo(collection)
-	res, err := base.InsertOne(testUser)
+	au := lxDb.AuthAudit{User: bson.M{"name": "Timo Liebetrau"}}
+	res, err := base.InsertOne(testUser, &au)
+	time.Sleep(time.Second * 100)
 	its.NoError(err)
 
 	// Check insert result id

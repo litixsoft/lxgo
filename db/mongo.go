@@ -2,8 +2,9 @@ package lxDb
 
 import (
 	"context"
-	"github.com/globalsign/mgo"
 	lxErrors "github.com/litixsoft/lxgo/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -20,6 +21,9 @@ type mongoBaseRepo struct {
 }
 
 type AuditFn func(user interface{})
+type AuthAudit struct {
+	User interface{}
+}
 
 // GetMongoDbClient, return new mongo driver client
 func GetMongoDbClient(uri string) (client *mongo.Client, err error) {
@@ -49,6 +53,7 @@ func NewMongoBaseRepo(collection *mongo.Collection) IBaseRepo {
 func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (interface{}, error) {
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
+	var authUser interface{}
 
 	for i := 0; i < len(args); i++ {
 		switch args[i].(type) {
@@ -56,6 +61,8 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			timeout = args[i].(time.Duration)
 		case *options.InsertOneOptions:
 			opts = args[i].(*options.InsertOneOptions)
+		case *AuthAudit:
+			authUser = args[i].(*AuthAudit).User
 		}
 	}
 
@@ -65,6 +72,35 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	res, err := repo.collection.InsertOne(ctx, doc, opts)
 	if err != nil {
 		return nil, err
+	}
+
+	if authUser != nil {
+		go func(insertId interface{}, collection *mongo.Collection) {
+			id, ok := insertId.(primitive.ObjectID)
+			if !ok {
+				log.Println("insert audit error, can't convert id")
+				return
+			}
+
+			log.Println("authUser:", authUser)
+			log.Println("db:", collection.Database().Name())
+			log.Println("collection:", collection.Name())
+			log.Println("action:", "insert")
+			log.Println("id:", id)
+
+			log.Println("Ich suche")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var res bson.D
+			err := collection.FindOne(ctx, bson.D{{"_id", id}}).Decode(&res)
+			if err != nil {
+				log.Printf("insert audit error:%v\n", err)
+				return
+			}
+			log.Println("kein fehler")
+			log.Println("data:", res)
+		}(res.InsertedID, repo.collection)
 	}
 
 	return res.InsertedID, nil
@@ -315,61 +351,4 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 	}
 
 	return count, err
-}
-
-/////////////////////////////////////////////////
-// deprecated, Will be removed in a later version
-/////////////////////////////////////////////////
-// Db struct for mongodb
-type MongoDb struct {
-	Conn       *mgo.Session
-	Name       string
-	Collection string
-}
-
-// NewMongoDbConn, get a new db connection
-func GetMongoDbConnection(url string) *mgo.Session {
-	// dial info
-	dialInfo, err := mgo.ParseURL(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Connection timeout
-	dialInfo.Timeout = 30 * time.Second
-
-	// Create new connection
-	conn, err := mgo.DialWithInfo(dialInfo)
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn.SetMode(mgo.Primary, true)
-
-	return conn
-}
-
-func NewMongoDb(connection *mgo.Session, dbName, collection string) *MongoDb {
-	return &MongoDb{
-		Conn:       connection,
-		Name:       dbName,
-		Collection: collection,
-	}
-}
-
-// Setup create indexes for user collection.
-func (db *MongoDb) Setup(indexes []mgo.Index) error {
-	// Copy mongo session (thread safe) and close after function
-	conn := db.Conn.Copy()
-	defer conn.Close()
-
-	// Ensure indexes
-	col := conn.DB(db.Name).C(db.Collection)
-
-	for _, i := range indexes {
-		if err := col.EnsureIndex(i); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
