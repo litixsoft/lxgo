@@ -16,29 +16,19 @@ const (
 	DefaultTimeout = time.Second * 30
 )
 
-// AuditFn func for audit type
-type IAuditBaseRepo interface {
-	Insert(authUser interface{}, collection string, data interface{}) error
-}
-
-// AuthAudit, auth user for audit
-type AuthAudit struct {
-	User interface{}
-}
-
 type mongoBaseRepo struct {
 	collection *mongo.Collection
-	audit      IAuditBaseRepo
+	audit      IBaseRepoAudit
 }
 
 // NewMongoBaseRepo, return base repo instance
-func NewMongoBaseRepo(collection *mongo.Collection, auditBaseRepo ...IAuditBaseRepo) IBaseRepo {
+func NewMongoBaseRepo(collection *mongo.Collection, baseRepoAudit ...IBaseRepoAudit) IBaseRepo {
 	// Default audit is nil
-	var audit IAuditBaseRepo
+	var audit IBaseRepoAudit
 
 	// Optional audit in args
-	if len(auditBaseRepo) > 0 {
-		audit = auditBaseRepo[0]
+	if len(baseRepoAudit) > 0 {
+		audit = baseRepoAudit[0]
 	}
 
 	return &mongoBaseRepo{
@@ -79,8 +69,8 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			timeout = args[i].(time.Duration)
 		case *options.InsertOneOptions:
 			opts = args[i].(*options.InsertOneOptions)
-		case *AuthAudit:
-			authUser = args[i].(*AuthAudit).User
+		case *AuditAuth:
+			authUser = args[i].(*AuditAuth).User
 		case chan bool:
 			done = args[i].(chan bool)
 		}
@@ -101,13 +91,18 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 				done <- true
 			}()
 
-			var res bson.M
-			if err := repo.FindOne(bson.D{{"_id", id}}, &res); err != nil {
-				log.Printf("insert audit error:%v\n", err)
-				return
+			// Log entry
+			logEntry := &AuditLogEntry{
+				AuthUser:       authUser,
+				DbName:         repo.collection.Database().Name(),
+				CollectionName: repo.collection.Name(),
+				Ident:          id.Hex(),
+				Action:         "insert",
+				Data:           doc,
 			}
 
-			if err := repo.audit.Insert(authUser, repo.collection.Name(), res); err != nil {
+			// Write to logger
+			if err := repo.audit.LogEntry(logEntry); err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				return
 			}
@@ -243,17 +238,23 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 }
 
 // UpdateOne updates a single document in the collection.
-func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
-	// Default values
+func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, args ...interface{}) error {
 	timeout := DefaultTimeout
-	opts := &options.UpdateOptions{}
+	opts := &options.FindOneAndUpdateOptions{}
+	opts.SetReturnDocument(options.After)
+	var authUser interface{}
+	done := make(chan bool)
 
 	for i := 0; i < len(args); i++ {
 		switch args[i].(type) {
 		case time.Duration:
 			timeout = args[i].(time.Duration)
-		case *options.UpdateOptions:
-			opts = args[i].(*options.UpdateOptions)
+		case *options.FindOneAndUpdateOptions:
+			opts = args[i].(*options.FindOneAndUpdateOptions)
+		case *AuditAuth:
+			authUser = args[i].(*AuditAuth).User
+		case chan bool:
+			done = args[i].(chan bool)
 		}
 	}
 
@@ -261,18 +262,41 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	defer cancel()
 
 	// Return UpdateResult
-	ret := new(UpdateResult)
-	res, err := repo.collection.UpdateOne(ctx, filter, update, opts)
-
-	// Convert to UpdateResult
-	if res != nil {
-		ret.MatchedCount = res.MatchedCount
-		ret.ModifiedCount = res.ModifiedCount
-		ret.UpsertedCount = res.UpsertedCount
-		ret.UpsertedID = res.UpsertedID
+	var afterUpdate bson.D
+	if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&afterUpdate); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return lxErrors.NewNotFoundError(err.Error())
+		}
+		return err
 	}
 
-	return ret, err
+	// Audit
+	if authUser != nil && repo.audit != nil {
+		// Start audit async
+		go func() {
+			defer func() {
+				done <- true
+			}()
+
+			// Log entry
+			logEntry := &AuditLogEntry{
+				AuthUser:       authUser,
+				DbName:         repo.collection.Database().Name(),
+				CollectionName: repo.collection.Name(),
+				Ident:          afterUpdate.Map()["_id"].(primitive.ObjectID).Hex(),
+				Action:         "update",
+				Data:           afterUpdate,
+			}
+
+			// Write to logger
+			if err := repo.audit.LogEntry(logEntry); err != nil {
+				log.Printf("update audit error:%v\n", err)
+				return
+			}
+		}()
+	}
+
+	return nil
 }
 
 // UpdateMany updates multiple documents in the collection.

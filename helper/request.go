@@ -1,8 +1,12 @@
 package lxHelper
 
 import (
+	"bytes"
 	"encoding/json"
 	lxDb "github.com/litixsoft/lxgo/db"
+	"io/ioutil"
+	"net/http"
+	"time"
 )
 
 // RequestByQuery
@@ -12,7 +16,7 @@ type RequestByQuery struct {
 	Count       bool                   `json:"count"`
 }
 
-// NewRequestByQuery
+// NewRequestByQuery, convert query string
 func NewRequestByQuery(queryStr string) (data *RequestByQuery, err error) {
 	data = new(RequestByQuery)
 
@@ -27,18 +31,54 @@ func NewRequestByQuery(queryStr string) (data *RequestByQuery, err error) {
 	return data, err
 }
 
-/////////////////////////////////////////////////
-// deprecated, Will be removed in a later version
-/////////////////////////////////////////////////
-func NewReqByQuery(opts string) (*ReqByQuery, error) {
-	var data ReqByQuery
+// Request
+func Request(header http.Header, body interface{}, uri, method string, timeout time.Duration) (*http.Response, error) {
+	// Request
+	var err error
+	req := new(http.Request)
 
-	if len(opts) > 0 {
-		err := json.Unmarshal([]byte(opts), &data)
+	// Check body and set request
+	if body != nil {
+		// Convert reqBody to json
+		jsonData, err := json.Marshal(body)
 		if err != nil {
-			return nil, err
+			return &http.Response{}, err
+		}
+
+		// Post to url
+		req, err = http.NewRequest(method, uri, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return &http.Response{}, err
+		}
+	} else {
+		req, err = http.NewRequest(method, uri, nil)
+		if err != nil {
+			return &http.Response{}, err
 		}
 	}
 
-	return &data, nil
+	// Set header
+	req.Header = header
+
+	// Send request
+	client := &http.Client{Timeout: timeout}
+
+	return client.Do(req)
+}
+
+// ReadResponseBody, read and convert body
+func ReadResponseBody(resp *http.Response, result interface{}) error {
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// Check respBody
+	if len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return err
+		}
+	}
+
+	return resp.Body.Close()
 }

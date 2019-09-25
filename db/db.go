@@ -5,6 +5,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// IBaseRepo
 type IBaseRepo interface {
 	InsertOne(doc interface{}, args ...interface{}) (interface{}, error)
 	InsertMany(docs []interface{}, args ...interface{}) ([]interface{}, error)
@@ -12,10 +13,30 @@ type IBaseRepo interface {
 	EstimatedDocumentCount(args ...interface{}) (int64, error)
 	Find(filter interface{}, result interface{}, args ...interface{}) error
 	FindOne(filter interface{}, result interface{}, args ...interface{}) error
-	UpdateOne(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	UpdateOne(filter interface{}, update interface{}, args ...interface{}) error
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) (int64, error)
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
+}
+
+// LogEntryConfig
+type AuditLogEntry struct {
+	AuthUser       interface{} `json:"auth_user,omitempty" bson:"auth_user,omitempty"`
+	DbName         string      `json:"db_name,omitempty" bson:"db_name"`
+	CollectionName string      `json:"collection_name,omitempty" bson:"collection_name"`
+	Ident          string      `json:"ident,omitempty" bson:"ident"`
+	Action         string      `json:"action,omitempty" bson:"action"`
+	Data           interface{} `json:"data,omitempty" bson:"data,omitempty"`
+}
+
+// IBaseRepoAudit
+type IBaseRepoAudit interface {
+	LogEntry(entry *AuditLogEntry) error
+}
+
+// AuthAudit, auth user for audit
+type AuditAuth struct {
+	User interface{}
 }
 
 // FindOptions
