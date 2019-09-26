@@ -1,7 +1,7 @@
-package lxErrors_test
+package lxHelper_test
 
 import (
-	lxErrors "github.com/litixsoft/lxgo/errors"
+	lxHelper "github.com/litixsoft/lxgo/helper"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -9,12 +9,12 @@ import (
 func TestNotFoundError_Error(t *testing.T) {
 	its := assert.New(t)
 
-	err := lxErrors.NewNotFoundError()
-	err2 := lxErrors.NewNotFoundError("test message")
+	err := lxHelper.NewNotFoundError()
+	err2 := lxHelper.NewNotFoundError("test message")
 
 	// Check types
-	its.IsType(&lxErrors.NotFoundError{}, err)
-	its.IsType(&lxErrors.NotFoundError{}, err2)
+	its.IsType(&lxHelper.NotFoundError{}, err)
+	its.IsType(&lxHelper.NotFoundError{}, err2)
 
 	// Check values
 	its.Equal("not found", err.Error())

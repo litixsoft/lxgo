@@ -1,12 +1,14 @@
 package lxCrypt
 
-import "github.com/litixsoft/lxgo/helper"
+import (
+	"golang.org/x/crypto/bcrypt"
+)
 
 // ICrypt,
 // interface for mapping bcrypt
 type ICrypt interface {
 	GeneratePassword(plainPwd string) (string, error)
-	ComparePassword(hashedPwd, plainPwd string) error
+	ComparePassword(plainPwd, hashedPwd string) error
 }
 
 // Crypt,
@@ -21,11 +23,17 @@ func NewCrypt() *Crypt {
 // GeneratePassword,
 // mapper for create new encrypt password from plain password
 func (c *Crypt) GeneratePassword(plainPwd string) (string, error) {
-	return lxHelper.GenerateFromPassword(plainPwd)
+	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(plainPwd), bcrypt.MinCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedPwd), nil
 }
 
 // ComparePassword,
 // mapper for compare encrypt password with plain password
-func (c *Crypt) ComparePassword(cryptPwd, plainPwd string) error {
-	return lxHelper.CompareHashAndPassword(cryptPwd, plainPwd)
+func (c *Crypt) ComparePassword(plainPwd, hashedPwd string) error {
+	pPwd := []byte(plainPwd)
+	hPwd := []byte(hashedPwd)
+	return bcrypt.CompareHashAndPassword(hPwd, pPwd)
 }

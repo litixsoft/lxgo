@@ -20,7 +20,7 @@ func TestNewRequestByQuery(t *testing.T) {
 	its.Equal(expect, reflect.TypeOf(data).String())
 
 	// Check sub types
-	expect = "lxDb.FindOptions"
+	expect = "lxHelper.FindOptions"
 	its.Equal(expect, reflect.TypeOf(data.FindOptions).String())
 
 	expect = "map[string]interface {}"

@@ -34,10 +34,10 @@ func (m *MockIBaseRepo) EXPECT() *MockIBaseRepoMockRecorder {
 }
 
 // CountDocuments mocks base method
-func (m *MockIBaseRepo) CountDocuments(arg0 string, arg1 interface{}, arg2 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) CountDocuments(arg0 interface{}, arg1 ...interface{}) (int64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CountDocuments", varargs...)
@@ -47,17 +47,17 @@ func (m *MockIBaseRepo) CountDocuments(arg0 string, arg1 interface{}, arg2 ...in
 }
 
 // CountDocuments indicates an expected call of CountDocuments
-func (mr *MockIBaseRepoMockRecorder) CountDocuments(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) CountDocuments(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountDocuments", reflect.TypeOf((*MockIBaseRepo)(nil).CountDocuments), varargs...)
 }
 
 // DeleteMany mocks base method
-func (m *MockIBaseRepo) DeleteMany(arg0 string, arg1 interface{}, arg2 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) DeleteMany(arg0 interface{}, arg1 ...interface{}) (int64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteMany", varargs...)
@@ -67,17 +67,17 @@ func (m *MockIBaseRepo) DeleteMany(arg0 string, arg1 interface{}, arg2 ...interf
 }
 
 // DeleteMany indicates an expected call of DeleteMany
-func (mr *MockIBaseRepoMockRecorder) DeleteMany(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) DeleteMany(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMany", reflect.TypeOf((*MockIBaseRepo)(nil).DeleteMany), varargs...)
 }
 
 // DeleteOne mocks base method
-func (m *MockIBaseRepo) DeleteOne(arg0 string, arg1 interface{}, arg2 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) DeleteOne(arg0 interface{}, arg1 ...interface{}) (int64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteOne", varargs...)
@@ -87,17 +87,17 @@ func (m *MockIBaseRepo) DeleteOne(arg0 string, arg1 interface{}, arg2 ...interfa
 }
 
 // DeleteOne indicates an expected call of DeleteOne
-func (mr *MockIBaseRepoMockRecorder) DeleteOne(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) DeleteOne(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOne", reflect.TypeOf((*MockIBaseRepo)(nil).DeleteOne), varargs...)
 }
 
 // EstimatedDocumentCount mocks base method
-func (m *MockIBaseRepo) EstimatedDocumentCount(arg0 string, arg1 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) EstimatedDocumentCount(arg0 ...interface{}) (int64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "EstimatedDocumentCount", varargs...)
@@ -107,17 +107,16 @@ func (m *MockIBaseRepo) EstimatedDocumentCount(arg0 string, arg1 ...interface{})
 }
 
 // EstimatedDocumentCount indicates an expected call of EstimatedDocumentCount
-func (mr *MockIBaseRepoMockRecorder) EstimatedDocumentCount(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) EstimatedDocumentCount(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimatedDocumentCount", reflect.TypeOf((*MockIBaseRepo)(nil).EstimatedDocumentCount), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimatedDocumentCount", reflect.TypeOf((*MockIBaseRepo)(nil).EstimatedDocumentCount), arg0...)
 }
 
 // Find mocks base method
-func (m *MockIBaseRepo) Find(arg0 string, arg1, arg2 interface{}, arg3 ...interface{}) error {
+func (m *MockIBaseRepo) Find(arg0, arg1 interface{}, arg2 ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Find", varargs...)
@@ -126,17 +125,17 @@ func (m *MockIBaseRepo) Find(arg0 string, arg1, arg2 interface{}, arg3 ...interf
 }
 
 // Find indicates an expected call of Find
-func (mr *MockIBaseRepoMockRecorder) Find(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) Find(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockIBaseRepo)(nil).Find), varargs...)
 }
 
 // FindOne mocks base method
-func (m *MockIBaseRepo) FindOne(arg0 string, arg1, arg2 interface{}, arg3 ...interface{}) error {
+func (m *MockIBaseRepo) FindOne(arg0, arg1 interface{}, arg2 ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "FindOne", varargs...)
@@ -145,17 +144,17 @@ func (m *MockIBaseRepo) FindOne(arg0 string, arg1, arg2 interface{}, arg3 ...int
 }
 
 // FindOne indicates an expected call of FindOne
-func (mr *MockIBaseRepoMockRecorder) FindOne(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) FindOne(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOne", reflect.TypeOf((*MockIBaseRepo)(nil).FindOne), varargs...)
 }
 
 // InsertMany mocks base method
-func (m *MockIBaseRepo) InsertMany(arg0 string, arg1 []interface{}, arg2 ...interface{}) ([]interface{}, error) {
+func (m *MockIBaseRepo) InsertMany(arg0 []interface{}, arg1 ...interface{}) ([]interface{}, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "InsertMany", varargs...)
@@ -165,17 +164,17 @@ func (m *MockIBaseRepo) InsertMany(arg0 string, arg1 []interface{}, arg2 ...inte
 }
 
 // InsertMany indicates an expected call of InsertMany
-func (mr *MockIBaseRepoMockRecorder) InsertMany(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) InsertMany(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertMany", reflect.TypeOf((*MockIBaseRepo)(nil).InsertMany), varargs...)
 }
 
 // InsertOne mocks base method
-func (m *MockIBaseRepo) InsertOne(arg0 string, arg1 interface{}, arg2 ...interface{}) (interface{}, error) {
+func (m *MockIBaseRepo) InsertOne(arg0 interface{}, arg1 ...interface{}) (interface{}, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "InsertOne", varargs...)
@@ -185,17 +184,17 @@ func (m *MockIBaseRepo) InsertOne(arg0 string, arg1 interface{}, arg2 ...interfa
 }
 
 // InsertOne indicates an expected call of InsertOne
-func (mr *MockIBaseRepoMockRecorder) InsertOne(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) InsertOne(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertOne", reflect.TypeOf((*MockIBaseRepo)(nil).InsertOne), varargs...)
 }
 
 // UpdateMany mocks base method
-func (m *MockIBaseRepo) UpdateMany(arg0 string, arg1, arg2 interface{}, arg3 ...interface{}) (*db.UpdateResult, error) {
+func (m *MockIBaseRepo) UpdateMany(arg0, arg1 interface{}, arg2 ...interface{}) (*db.UpdateResult, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateMany", varargs...)
@@ -205,28 +204,27 @@ func (m *MockIBaseRepo) UpdateMany(arg0 string, arg1, arg2 interface{}, arg3 ...
 }
 
 // UpdateMany indicates an expected call of UpdateMany
-func (mr *MockIBaseRepoMockRecorder) UpdateMany(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) UpdateMany(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMany", reflect.TypeOf((*MockIBaseRepo)(nil).UpdateMany), varargs...)
 }
 
 // UpdateOne mocks base method
-func (m *MockIBaseRepo) UpdateOne(arg0 string, arg1, arg2 interface{}, arg3 ...interface{}) (*db.UpdateResult, error) {
+func (m *MockIBaseRepo) UpdateOne(arg0, arg1 interface{}, arg2 ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateOne", varargs...)
-	ret0, _ := ret[0].(*db.UpdateResult)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateOne indicates an expected call of UpdateOne
-func (mr *MockIBaseRepoMockRecorder) UpdateOne(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockIBaseRepoMockRecorder) UpdateOne(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOne", reflect.TypeOf((*MockIBaseRepo)(nil).UpdateOne), varargs...)
 }

@@ -17,6 +17,6 @@ func TestCrypt_GeneratePassword(t *testing.T) {
 	cryptPwd, err := c.GeneratePassword("plain-pwd")
 	assert.NoError(t, err)
 
-	err = c.ComparePassword(cryptPwd, "plain-pwd")
+	err = c.ComparePassword("plain-pwd", cryptPwd)
 	assert.NoError(t, err)
 }
