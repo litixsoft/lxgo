@@ -3,15 +3,18 @@ package lxDb_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
+	lxAudit "github.com/litixsoft/lxgo/audit"
+	lxAuditMocks "github.com/litixsoft/lxgo/audit/mocks"
 	lxDb "github.com/litixsoft/lxgo/db"
-	lxDbMocks "github.com/litixsoft/lxgo/db/mocks"
 	lxErrors "github.com/litixsoft/lxgo/errors"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"io/ioutil"
 	"log"
 	"os"
@@ -247,27 +250,6 @@ func setupDataNew(db *mongo.Database) []TestUser {
 //}
 //
 /////// ############# ############# /////
-// TestLogger
-type TestAuditLogger struct{}
-
-func (l *TestAuditLogger) Insert(authUser interface{}, db, collection string, data interface{}) error {
-	log.Printf("authUser: %v\n", authUser)
-	log.Printf("database: %s\n", db)
-	log.Printf("collection: %s\n", collection)
-	log.Printf("data: %v\n", data)
-
-	return nil
-}
-
-func (l *TestAuditLogger) Update(authUser interface{}, db, collection string, data interface{}) error {
-	log.Printf("authUser: %v\n", authUser)
-	log.Printf("database: %s\n", db)
-	log.Printf("collection: %s\n", collection)
-	log.Printf("data: %v\n", data)
-
-	return nil
-}
-
 func TestGetMongoDbClient(t *testing.T) {
 	its := assert.New(t)
 
@@ -293,7 +275,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		Email: "test@test.de",
 	}
 
-	t.Run("without audit", func(t *testing.T) {
+	t.Run("insert", func(t *testing.T) {
 		// Test the base repo
 		base := lxDb.NewMongoBaseRepo(collection)
 		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
@@ -311,31 +293,54 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		its.Equal(testUser.Email, checkUser.Email)
 		its.Equal(testUser.IsActive, checkUser.IsActive)
 	})
+	t.Run("with timeout and options", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+
+		// Channel for close
+		res, err := base.InsertOne(testUser, &au, time.Second*10, options.InsertOne().SetBypassDocumentValidation(false))
+		its.NoError(err)
+
+		// Check insert result id
+		var checkUser TestUser
+		filter := bson.D{{"_id", res.(primitive.ObjectID)}}
+		its.NoError(base.FindOne(filter, &checkUser))
+
+		its.Equal(testUser.Name, checkUser.Name)
+		its.Equal(testUser.Email, checkUser.Email)
+		its.Equal(testUser.IsActive, checkUser.IsActive)
+	})
 	t.Run("with audit", func(t *testing.T) {
 		// Test the base repo with mock
 		mockCtrl := gomock.NewController(t)
 		defer mockCtrl.Finish()
-		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+		mockIAudit := lxAuditMocks.NewMockIAudit(mockCtrl)
 
 		// Repo with audit mocks
-		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+		base := lxDb.NewMongoBaseRepo(collection, mockIAudit)
 
 		// AuthUser
 		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
 
 		// Check mock params
-		doAction := func(entry *lxDb.AuditLogEntry) {
+		var ident primitive.ObjectID
+		doAction := func(entry *lxAudit.LogEntry) {
 			its.Equal(au.User, entry.AuthUser)
 			its.Equal(collection.Database().Name(), entry.DbName)
 			its.Equal(collection.Name(), entry.CollectionName)
-			its.NotEmpty(entry.Ident)
-			its.Equal(testUser.Name, entry.Data.(bson.M)["name"].(string))
-			its.Equal(testUser.Email, entry.Data.(bson.M)["email"].(string))
-			its.Equal(testUser.IsActive, entry.Data.(bson.M)["is_active"].(bool))
+
+			// Save for other tests this is a test for valid primitive.ObjectID
+			ident, err = primitive.ObjectIDFromHex(entry.Ident)
+			its.NoError(err)
+
+			its.Equal(testUser.Name, entry.Data.(TestUser).Name)
+			its.Equal(testUser.Email, entry.Data.(TestUser).Email)
+			its.Equal(testUser.IsActive, entry.Data.(TestUser).IsActive)
 		}
 
 		// Configure mock
-		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any()).Return(nil).Do(doAction).Times(1)
+		mockIAudit.EXPECT().LogEntry(gomock.Any()).Return(nil).Do(doAction).Times(1)
 
 		// Channel for close and run test
 		done := make(chan bool)
@@ -350,9 +355,37 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		filter := bson.D{{"_id", res.(primitive.ObjectID)}}
 		its.NoError(base.FindOne(filter, &checkUser))
 
+		its.Equal(ident, checkUser.Id)
 		its.Equal(testUser.Name, checkUser.Name)
 		its.Equal(testUser.Email, checkUser.Email)
 		its.Equal(testUser.IsActive, checkUser.IsActive)
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIAudit := lxAuditMocks.NewMockIAudit(mockCtrl)
+
+		// Repo with audit mocks
+		base := lxDb.NewMongoBaseRepo(collection, mockIAudit)
+
+		// AuthUser
+		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+
+		// Configure mock
+		mockIAudit.EXPECT().LogEntry(gomock.Any()).Return(errors.New("test-error")).Times(1)
+
+		// Channel for close and run test
+		done := make(chan bool)
+		chanErr := make(chan error)
+		_, err := base.InsertOne(testUser, &au, done, chanErr)
+
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+
+		// Check update return
+		its.NoError(err)
 	})
 }
 
@@ -554,32 +587,10 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
 	testUsers := setupDataNew(db)
 
-	t.Run("PUT", func(t *testing.T) {
-		// Test the base repo
-		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-
-		// Update testUser
-		tu := testUsers[4]
-		tu.Name = "Is Updated"
-
-		filter := bson.D{{"_id", tu.Id}}
-		update := bson.D{{"$set", tu}}
-		err := base.UpdateOne(filter, update)
-		//res, err := base.UpdateOne(filter, update)
-		its.NoError(err)
-		//its.Equal(int64(1), res.MatchedCount)
-		//its.Equal(int64(1), res.ModifiedCount)
-		//its.Equal(int64(0), res.UpsertedCount)
-		//its.Nil(res.UpsertedID)
-
-		// Check with Find
-		var check TestUser
-		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
-		its.Equal(tu.Name, check.Name)
-	})
-	t.Run("PATCH", func(t *testing.T) {
+	t.Run("update", func(t *testing.T) {
 		// Test the base repo
 		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
 
@@ -590,12 +601,25 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
 		err := base.UpdateOne(filter, update)
-		//res, err := base.UpdateOne(filter, update)
 		its.NoError(err)
-		//its.Equal(int64(1), res.MatchedCount)
-		//its.Equal(int64(1), res.ModifiedCount)
-		//its.Equal(int64(0), res.UpsertedCount)
-		//its.Nil(res.UpsertedID)
+
+		// Check with Find
+		var check TestUser
+		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
+		its.Equal(newName, check.Name)
+	})
+	t.Run("with timeout and options", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+		// Update testUser
+		tu := testUsers[5]
+		newName := "Is Updated"
+
+		filter := bson.D{{"_id", tu.Id}}
+		update := bson.D{{"$set", bson.D{{"name", newName}}}}
+		err := base.UpdateOne(filter, update, time.Second*10, options.FindOneAndUpdate().SetMaxTime(time.Second*10))
+		its.NoError(err)
 
 		// Check with Find
 		var check TestUser
@@ -604,14 +628,12 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 	})
 	t.Run("with audit", func(t *testing.T) {
 		// Test the base repo with mock
-		//mockCtrl := gomock.NewController(t)
-		//defer mockCtrl.Finish()
-		//mockIAuditBaseRepo := lxDbMocks.NewMockIAuditBaseRepo(mockCtrl)
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIAudit := lxAuditMocks.NewMockIAudit(mockCtrl)
 
 		// Test the base repo
-		audit := &TestAuditLogger{}
-		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection), audit)
-		//base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection), mockIAuditBaseRepo)
+		base := lxDb.NewMongoBaseRepo(collection, mockIAudit)
 
 		// Update testUser
 		tu := testUsers[5]
@@ -619,25 +641,87 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		// AuthUser
 		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+
+		// Check mock params
+		var ident primitive.ObjectID
+		doAction := func(entry *lxAudit.LogEntry) {
+			its.Equal(au.User, entry.AuthUser)
+			its.Equal(collection.Database().Name(), entry.DbName)
+			its.Equal(collection.Name(), entry.CollectionName)
+
+			// Save for other tests this is a test for valid primitive.ObjectID
+			ident, err = primitive.ObjectIDFromHex(entry.Ident)
+			its.NoError(err)
+
+			its.Equal(newName, entry.Data.(bson.M)["name"])
+			its.Equal(tu.Email, entry.Data.(bson.M)["email"])
+			its.Equal(tu.IsActive, entry.Data.(bson.M)["is_active"])
+		}
+
+		// Configure mock
+		mockIAudit.EXPECT().LogEntry(gomock.Any()).Return(nil).Do(doAction).Times(1)
+
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
 		done := make(chan bool)
 		err := base.UpdateOne(filter, update, &au, done)
-		//res, err := base.UpdateOne(filter, update, &au, done)
 
 		// Wait for close channel and check err
 		<-done
 		its.NoError(err)
 
-		//its.Equal(int64(1), res.MatchedCount)
-		//its.Equal(int64(1), res.ModifiedCount)
-		//its.Equal(int64(0), res.UpsertedCount)
-		//its.Nil(res.UpsertedID)
+		// Check ident
+		its.Equal(tu.Id, ident)
 
 		// Check with Find
 		var check TestUser
 		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
 		its.Equal(newName, check.Name)
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIAudit := lxAuditMocks.NewMockIAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIAudit)
+
+		// Update testUser
+		tu := testUsers[5]
+		newName := "Is Updated"
+
+		// AuthUser
+		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+
+		// Configure mock
+		mockIAudit.EXPECT().LogEntry(gomock.Any()).Return(errors.New("test-error")).Times(1)
+
+		filter := bson.D{{"_id", tu.Id}}
+		update := bson.D{{"$set", bson.D{{"name", newName}}}}
+		done := make(chan bool)
+		chanErr := make(chan error)
+		err := base.UpdateOne(filter, update, &au, done, chanErr)
+
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+
+		// Check update return
+		its.NoError(err)
+	})
+	t.Run("with not found error", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+		// Update testUser
+		newName := "Is Updated"
+
+		filter := bson.D{{"_id", primitive.NewObjectID()}}
+		update := bson.D{{"$set", bson.D{{"name", newName}}}}
+		err := base.UpdateOne(filter, update)
+		its.Error(err)
+		its.IsType(&lxErrors.NotFoundError{}, err)
 	})
 }
 
@@ -681,22 +765,74 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
 	testUsers := setupDataNew(db)
 	user := testUsers[10]
 
-	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+	t.Run("delete", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
 
-	filter := bson.D{{"_id", user.Id}}
-	res, err := base.DeleteOne(filter)
-	its.NoError(err)
-	its.Equal(int64(1), res)
+		filter := bson.D{{"_id", user.Id}}
+		res, err := base.DeleteOne(filter)
+		its.NoError(err)
+		its.Equal(int64(1), res)
 
-	// Check with Find
-	var check TestUser
-	err = base.FindOne(bson.D{{"_id", user.Id}}, &check)
-	its.Error(err)
-	its.IsType(&lxErrors.NotFoundError{}, err)
+		// Check with Find
+		var check TestUser
+		err = base.FindOne(bson.D{{"_id", user.Id}}, &check)
+		its.Error(err)
+		its.IsType(&lxErrors.NotFoundError{}, err)
+	})
+	t.Run("with audit", func(t *testing.T) {
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIAudit := lxAuditMocks.NewMockIAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIAudit)
+
+		// AuditAuth
+		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+
+		// Check mock params
+		//var ident primitive.ObjectID
+		doAction := func(entry *lxAudit.LogEntry) {
+			log.Println("yuhuu")
+			log.Println(entry)
+			//its.Equal(au.User, entry.AuthUser)
+			//its.Equal(collection.Database().Name(), entry.DbName)
+			//its.Equal(collection.Name(), entry.CollectionName)
+			//
+			//// Save for other tests this is a test for valid primitive.ObjectID
+			//ident, err = primitive.ObjectIDFromHex(entry.Ident)
+			//its.NoError(err)
+			//
+			//its.Equal(newName, entry.Data.(bson.M)["name"])
+			//its.Equal(tu.Email, entry.Data.(bson.M)["email"])
+			//its.Equal(tu.IsActive, entry.Data.(bson.M)["is_active"])
+		}
+
+		// Configure mock
+		mockIAudit.EXPECT().LogEntry(gomock.Any()).Return(nil).Do(doAction).Times(1)
+
+		filter := bson.D{{"_id", user.Id}}
+		done := make(chan bool)
+		res, err := base.DeleteOne(filter, &au, done)
+
+		// Wait for close channel and check err
+		<-done
+		its.NoError(err)
+		its.Equal(int64(1), res)
+
+		// Check with Find
+		var check TestUser
+		err = base.FindOne(bson.D{{"_id", user.Id}}, &check)
+		its.Error(err)
+		its.IsType(&lxErrors.NotFoundError{}, err)
+	})
+
 }
 
 func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {

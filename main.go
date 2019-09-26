@@ -1,19 +1,20 @@
 package main
 
-import "fmt"
-
-type LogEntryConfig struct {
-	AuthUser   interface{} `json:"auth_user,omitempty" bson:"auth_user,omitempty"`
-	Db         string      `json:"db,omitempty" bson:"db"`
-	Collection string      `json:"collection,omitempty" bson:"collection"`
-	Ident      string      `json:"ident,omitempty" bson:"ident"`
-	Action     string      `json:"action,omitempty" bson:"action"`
-	Data       interface{} `json:"data,omitempty" bson:"data,omitempty"`
-}
+import (
+	"fmt"
+	"regexp"
+)
 
 func main() {
 
-	le := LogEntryConfig{}
-	fmt.Println(le)
+	//h1 := "mongodb://127.0.0.1:27017"
+	//h2 := "mongodb://127.0.0.1"
+	//h3 := "mongodb://localhost:27017"
+	//h4 := "mongodb://localhost"
+	//
+	//cut1 := strings.ReplaceAll(h1, "mongo")
 
+	re := regexp.MustCompile(`urogister-backend-test`)
+	fmt.Println(re.FindAllString("mongodb://127.0.0.1", -1))
+	//fmt.Printf("%q\n", re.FindAll([]byte(`mongodb://localhost  mongodb://localhost:27017 mongodb://127.0.0.1 mongodb://127.0.0.1:27017`), -1))
 }

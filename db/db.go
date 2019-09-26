@@ -19,21 +19,6 @@ type IBaseRepo interface {
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
 }
 
-// LogEntryConfig
-type AuditLogEntry struct {
-	AuthUser       interface{} `json:"auth_user,omitempty" bson:"auth_user,omitempty"`
-	DbName         string      `json:"db_name,omitempty" bson:"db_name"`
-	CollectionName string      `json:"collection_name,omitempty" bson:"collection_name"`
-	Ident          string      `json:"ident,omitempty" bson:"ident"`
-	Action         string      `json:"action,omitempty" bson:"action"`
-	Data           interface{} `json:"data,omitempty" bson:"data,omitempty"`
-}
-
-// IBaseRepoAudit
-type IBaseRepoAudit interface {
-	LogEntry(entry *AuditLogEntry) error
-}
-
 // AuthAudit, auth user for audit
 type AuditAuth struct {
 	User interface{}
