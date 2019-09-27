@@ -73,7 +73,7 @@ func TestAudit_LogEntry(t *testing.T) {
 		defer server.Close()
 
 		// instance
-		audit := lxAudit.NewAuditLogger(testClientHost, testCollectionName, server.URL, testKey)
+		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
 
 		// log test entry and check error
 		its.NoError(audit.LogEntry(lxAudit.Update, testUser, testData))
@@ -84,7 +84,7 @@ func TestAudit_LogEntry(t *testing.T) {
 		defer server.Close()
 
 		// instance
-		audit := lxAudit.NewAuditLogger(testClientHost, testCollectionName, server.URL, testKey)
+		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
 
 		// log test entry and check error
 		err := audit.LogEntry(lxAudit.Update, testUser, testData)
@@ -98,7 +98,7 @@ func TestAudit_LogEntry(t *testing.T) {
 		defer server.Close()
 
 		// instance
-		audit := lxAudit.NewAuditLogger(testClientHost, testCollectionName, server.URL, testKey)
+		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
 
 		// log test entry and check error
 		err := audit.LogEntry(lxAudit.Update, testUser, testData)

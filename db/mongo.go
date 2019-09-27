@@ -2,8 +2,6 @@ package lxDb
 
 import (
 	"context"
-	lxAudit "github.com/litixsoft/lxgo/audit"
-	"github.com/litixsoft/lxgo/helper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,17 +13,20 @@ import (
 
 const (
 	DefaultTimeout = time.Second * 30
+	Insert         = "insert"
+	Update         = "update"
+	Delete         = "delete"
 )
 
 type mongoBaseRepo struct {
 	collection *mongo.Collection
-	audit      lxAudit.IAuditLogger
+	audit      IBaseRepoAudit
 }
 
 // NewMongoBaseRepo, return base repo instance
-func NewMongoBaseRepo(collection *mongo.Collection, baseRepoAudit ...lxAudit.IAuditLogger) IBaseRepo {
+func NewMongoBaseRepo(collection *mongo.Collection, baseRepoAudit ...IBaseRepoAudit) IBaseRepo {
 	// Default audit is nil
-	var audit lxAudit.IAuditLogger
+	var audit IBaseRepoAudit
 
 	// Optional audit in args
 	if len(baseRepoAudit) > 0 {
@@ -96,7 +97,7 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(lxAudit.Insert, authUser, doc); err != nil {
+			if err := repo.audit.LogEntry(Insert, authUser, doc); err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				chanErr <- err
 				return
@@ -223,7 +224,7 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 	err := repo.collection.FindOne(ctx, filter, opts).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return lxHelper.NewNotFoundError(err.Error())
+			return NewNotFoundError(err.Error())
 		}
 
 		return err
@@ -260,10 +261,10 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	defer cancel()
 
 	// Return UpdateResult
-	var afterUpdate bson.M
+	var afterUpdate bson.D
 	if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&afterUpdate); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return lxHelper.NewNotFoundError(err.Error())
+			return NewNotFoundError(err.Error())
 		}
 		return err
 	}
@@ -277,7 +278,7 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(lxAudit.Update, authUser, afterUpdate); err != nil {
+			if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
 				log.Printf("update audit error:%v\n", err)
 				chanErr <- err
 				return
@@ -348,7 +349,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 	// Check id in filter
 	id, ok := filter.(bson.D).Map()["_id"].(primitive.ObjectID)
 	if !ok {
-		return int64(0), lxHelper.NewNotFoundError("error in filter, _id not found or wrong type")
+		return int64(0), NewNotFoundError("error in filter, _id not found or wrong type")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -370,7 +371,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(lxAudit.Delete, authUser, bson.M{"_id": id}); err != nil {
+			if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": id}); err != nil {
 				log.Printf("audit delete error: %v\n", err)
 				chanErr <- err
 				return

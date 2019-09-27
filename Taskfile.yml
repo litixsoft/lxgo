@@ -44,11 +44,12 @@ tasks:
   mocks:
     cmds:
       - mkdir -p audit/mocks
-      - mockgen -destination=audit/mocks/iauditlogger.go -package=lxAuditMocks github.com/litixsoft/lxgo/audit IAuditLogger
+      - mockgen -destination=audit/mocks/iaudit.go -package=lxAuditMocks github.com/litixsoft/lxgo/audit IAudit
       - mkdir -p crypt/mocks
       - mockgen -destination=crypt/mocks/icrypt.go -package=lxCryptMocks github.com/litixsoft/lxgo/crypt ICrypt
       - mkdir -p db/mocks
       - mockgen -destination=db/mocks/ibaserepo.go -package=lxDbMocks github.com/litixsoft/lxgo/db IBaseRepo
+      - mockgen -destination=db/mocks/ibaserepoaudit.go -package=lxDbMocks github.com/litixsoft/lxgo/db IBaseRepoAudit
       - mkdir -p schema/mocks
       - mockgen -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks github.com/litixsoft/lxgo/schema IJSONSchema
       - mkdir -p webhooks/mocks

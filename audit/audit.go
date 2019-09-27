@@ -16,19 +16,19 @@ const (
 )
 
 // IAudit interface for audit logger
-type IAuditLogger interface {
+type IAudit interface {
 	LogEntry(action string, user, data interface{}, timeout ...time.Duration) error
 }
 
-type auditLogger struct {
+type audit struct {
 	clientHost     string
 	collectionName string
 	auditHost      string
 	auditAuthKey   string
 }
 
-func NewAuditLogger(clientHost, collectionName, auditHost, auditAuthKey string) IAuditLogger {
-	return &auditLogger{
+func NewAudit(clientHost, collectionName, auditHost, auditAuthKey string) IAudit {
+	return &audit{
 		clientHost:     clientHost,
 		collectionName: collectionName,
 		auditHost:      auditHost,
@@ -37,7 +37,7 @@ func NewAuditLogger(clientHost, collectionName, auditHost, auditAuthKey string) 
 }
 
 // Log, send post request to audit service
-func (al *auditLogger) LogEntry(action string, user, data interface{}, timeout ...time.Duration) error {
+func (al *audit) LogEntry(action string, user, data interface{}, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
 		to = timeout[0]

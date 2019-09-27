@@ -2,6 +2,7 @@ package lxDb
 
 import (
 	"go.mongodb.org/mongo-driver/bson"
+	"time"
 )
 
 // IBaseRepo
@@ -16,6 +17,10 @@ type IBaseRepo interface {
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) (int64, error)
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
+}
+
+type IBaseRepoAudit interface {
+	LogEntry(action string, user, data interface{}, timeout ...time.Duration) error
 }
 
 // AuthAudit, auth user for audit
@@ -33,6 +38,17 @@ type UpdateResult struct {
 
 // ToBsonDoc, convert interface to bson.D
 func ToBsonDoc(v interface{}) (doc *bson.D, err error) {
+	data, err := bson.Marshal(v)
+	if err != nil {
+		return
+	}
+
+	err = bson.Unmarshal(data, &doc)
+	return
+}
+
+// ToBsonMap, convert interface to bson.M
+func ToBsonMap(v interface{}) (doc bson.M, err error) {
 	data, err := bson.Marshal(v)
 	if err != nil {
 		return

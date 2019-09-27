@@ -1,20 +1,43 @@
 package main
 
-import (
-	"fmt"
-	"regexp"
-)
+//type User struct {
+//	Name string
+//	Company string
+//	Age int
+//}
 
 func main() {
 
-	//h1 := "mongodb://127.0.0.1:27017"
-	//h2 := "mongodb://127.0.0.1"
-	//h3 := "mongodb://localhost:27017"
-	//h4 := "mongodb://localhost"
+	//user := User{
+	//	Name: "Timo Liebetrau",
+	//	Company: "Litixsoft",
+	//	Age:  46,
+	//}
 	//
-	//cut1 := strings.ReplaceAll(h1, "mongo")
+	//doc, err := lxDb.ToBsonDoc(user)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//log.Println(doc)
+	//
+	//client, err := lxDb.GetMongoDbClient("mongodb://127.0.0.1")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//insert := bson.M{
+	//	"host": "local",
+	//	"foo": "bar",
+	//	"data": doc,
+	//}
+	//
+	//collection := client.Database("test").Collection("audit_test")
+	//res, err := collection.InsertOne(context.TODO(), insert)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//log.Println(res)
 
-	re := regexp.MustCompile(`urogister-backend-test`)
-	fmt.Println(re.FindAllString("mongodb://127.0.0.1", -1))
-	//fmt.Printf("%q\n", re.FindAll([]byte(`mongodb://localhost  mongodb://localhost:27017 mongodb://127.0.0.1 mongodb://127.0.0.1:27017`), -1))
 }

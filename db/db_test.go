@@ -28,3 +28,25 @@ func TestToBsonDoc(t *testing.T) {
 	its.Equal(testType.FirstName, doc.Map()["firstname"])
 	its.Equal(testType.LastName, doc.Map()["lastname"])
 }
+
+func TestToBsonMap(t *testing.T) {
+	its := assert.New(t)
+
+	type TestType struct {
+		FirstName string
+		LastName  string
+		Age       int
+	}
+
+	testType := TestType{
+		FirstName: "Karl",
+		LastName:  "Ransauer",
+		Age:       44,
+	}
+
+	doc, err := lxDb.ToBsonMap(&testType)
+	its.NoError(err)
+	its.IsType(bson.M{}, doc)
+	its.Equal(testType.FirstName, doc["firstname"])
+	its.Equal(testType.LastName, doc["lastname"])
+}
