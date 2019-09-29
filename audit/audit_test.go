@@ -15,7 +15,7 @@ import (
 var (
 	testKey            = "c470e652-6d46-4f9d-960d-f32d84e682e7"
 	testClientHost     = "test.host"
-	testPath           = "/v1/logEntry"
+	testPath           = "/v1/log"
 	testCollectionName = "test.collection"
 	testUser           = bson.M{"name": "Timo Liebetrau", "age": float64(45)}
 	testData           = bson.M{"customer": "Karl Lagerfeld"}
