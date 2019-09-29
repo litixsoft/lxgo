@@ -17,6 +17,9 @@ type IBaseRepo interface {
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) (int64, error)
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
+	GetCollection() interface{}
+	GetDb() interface{}
+	GetRepoName() string
 }
 
 type IBaseRepoAudit interface {

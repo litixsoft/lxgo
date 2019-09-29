@@ -409,3 +409,18 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 
 	return count, err
 }
+
+// GetCollection get instance of repo collection.
+func (repo *mongoBaseRepo) GetCollection() interface{} {
+	return repo.collection
+}
+
+// GetDb get instance of repo collection database.
+func (repo *mongoBaseRepo) GetDb() interface{} {
+	return repo.collection.Database()
+}
+
+// GetRepoName, get name of repo (database/collection)
+func (repo *mongoBaseRepo) GetRepoName() string {
+	return repo.collection.Database().Name() + "/" + repo.collection.Name()
+}

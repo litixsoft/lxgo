@@ -773,3 +773,49 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 	its.NoError(err)
 	its.Equal(int64(0), count)
 }
+
+func TestMongoBaseRepo_GetCollection(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(collection)
+
+	its.Equal(collection, base.GetCollection())
+}
+
+func TestMongoBaseRepo_GetDb(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+	its.Equal(db, base.GetDb())
+}
+
+func TestMongoBaseRepo_GetRepoName(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(collection)
+
+	expect := db.Name() + "/" + collection.Name()
+
+	its.Equal(expect, base.GetRepoName())
+}
