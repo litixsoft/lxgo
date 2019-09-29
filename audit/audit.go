@@ -12,7 +12,7 @@ const (
 	Update         = "update"
 	Delete         = "delete"
 	DefaultTimeout = time.Second * 30
-	PathLogEntry   = "/v1/logEntry"
+	PathLogEntry   = "/v1/log"
 )
 
 // IAudit interface for audit logger
