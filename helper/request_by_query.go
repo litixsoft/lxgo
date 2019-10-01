@@ -12,6 +12,7 @@ type RequestByQuery struct {
 }
 
 // NewRequestByQuery, convert query string
+// ?config={"opts":{"sort":{"name":1, "email": -1},"skip":5,"limit":10},"query":{"name":"Schulterglatze"}, "count":true}
 func NewRequestByQuery(queryStr string) (data *RequestByQuery, err error) {
 	data = new(RequestByQuery)
 
