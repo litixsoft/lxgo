@@ -20,6 +20,7 @@ type IBaseRepo interface {
 	GetCollection() interface{}
 	GetDb() interface{}
 	GetRepoName() string
+	SetAuthUser(user interface{}) *AuditAuth
 }
 
 type IBaseRepoAudit interface {

@@ -67,17 +67,17 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.InsertOneOptions:
-			opts = args[i].(*options.InsertOneOptions)
+			opts = val
 		case *AuditAuth:
-			authUser = args[i].(*AuditAuth).User
+			authUser = val.User
 		case chan bool:
-			done = args[i].(chan bool)
+			done = val
 		case chan error:
-			chanErr = args[i].(chan error)
+			chanErr = val
 		}
 	}
 
@@ -114,11 +114,11 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 	opts := &options.InsertManyOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.InsertManyOptions:
-			opts = args[i].(*options.InsertManyOptions)
+			opts = val
 		}
 	}
 
@@ -141,11 +141,11 @@ func (repo *mongoBaseRepo) CountDocuments(filter interface{}, args ...interface{
 	opts := &options.CountOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.CountOptions:
-			opts = args[i].(*options.CountOptions)
+			opts = val
 		}
 	}
 
@@ -162,11 +162,11 @@ func (repo *mongoBaseRepo) EstimatedDocumentCount(args ...interface{}) (int64, e
 	opts := &options.EstimatedDocumentCountOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.EstimatedDocumentCountOptions:
-			opts = args[i].(*options.EstimatedDocumentCountOptions)
+			opts = val
 		}
 	}
 
@@ -183,11 +183,11 @@ func (repo *mongoBaseRepo) Find(filter interface{}, result interface{}, args ...
 	opts := &options.FindOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.FindOptions:
-			opts = args[i].(*options.FindOptions)
+			opts = val
 		}
 	}
 
@@ -209,11 +209,11 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 	opts := &options.FindOneOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.FindOneOptions:
-			opts = args[i].(*options.FindOneOptions)
+			opts = val
 		}
 	}
 
@@ -243,17 +243,17 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.FindOneAndUpdateOptions:
-			opts = args[i].(*options.FindOneAndUpdateOptions)
+			opts = val
 		case *AuditAuth:
-			authUser = args[i].(*AuditAuth).User
+			authUser = val.User
 		case chan bool:
-			done = args[i].(chan bool)
+			done = val
 		case chan error:
-			chanErr = args[i].(chan error)
+			chanErr = val
 		}
 	}
 
@@ -296,11 +296,11 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	opts := &options.UpdateOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.UpdateOptions:
-			opts = args[i].(*options.UpdateOptions)
+			opts = val
 		}
 	}
 
@@ -332,17 +332,17 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 	chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.DeleteOptions:
-			opts = args[i].(*options.DeleteOptions)
+			opts = val
 		case *AuditAuth:
-			authUser = args[i].(*AuditAuth).User
+			authUser = val.User
 		case chan bool:
-			done = args[i].(chan bool)
+			done = val
 		case chan error:
-			chanErr = args[i].(chan error)
+			chanErr = val
 		}
 	}
 
@@ -389,11 +389,11 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 	opts := &options.DeleteOptions{}
 
 	for i := 0; i < len(args); i++ {
-		switch args[i].(type) {
+		switch val := args[i].(type) {
 		case time.Duration:
-			timeout = args[i].(time.Duration)
+			timeout = val
 		case *options.DeleteOptions:
-			opts = args[i].(*options.DeleteOptions)
+			opts = val
 		}
 	}
 
@@ -423,4 +423,9 @@ func (repo *mongoBaseRepo) GetDb() interface{} {
 // GetRepoName, get name of repo (database/collection)
 func (repo *mongoBaseRepo) GetRepoName() string {
 	return repo.collection.Database().Name() + "/" + repo.collection.Name()
+}
+
+// SetAuthUser, set auth user for audit
+func (repo *mongoBaseRepo) SetAuthUser(user interface{}) *AuditAuth {
+	return &AuditAuth{User: user}
 }

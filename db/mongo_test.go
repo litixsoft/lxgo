@@ -148,7 +148,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
@@ -188,7 +188,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
@@ -215,7 +215,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	t.Run("with timeout and options", func(t *testing.T) {
 		// Test the base repo
 		base := lxDb.NewMongoBaseRepo(collection)
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Channel for close
 		res, err := base.InsertOne(testUser, &au, time.Second*10, options.InsertOne().SetBypassDocumentValidation(false))
@@ -488,7 +488,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		its.NoError(err)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check params with doAction
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
@@ -532,7 +532,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		its.NoError(err)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check params with doAction
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
@@ -646,7 +646,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		user := testUsers[6]
 
 		// AuditAuth
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
@@ -686,7 +686,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		user := testUsers[7]
 
 		// AuditAuth
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
+		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
@@ -818,4 +818,38 @@ func TestMongoBaseRepo_GetRepoName(t *testing.T) {
 	expect := db.Name() + "/" + collection.Name()
 
 	its.Equal(expect, base.GetRepoName())
+}
+
+func TestMongoBaseRepo_SetAuthUser(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(collection)
+
+	// Auth user
+	au := &bson.M{"firstname": "test", "lastname": "test test"}
+
+	// Run test
+	res := base.SetAuthUser(au)
+
+	// Should be type
+	its.IsType(&lxDb.AuditAuth{}, res)
+
+	// Test from args
+	// Simulate wrap in the functions
+	args := []interface{}{res}
+	var authUser interface{}
+
+	switch val := args[0].(type) {
+	case *lxDb.AuditAuth:
+		authUser = val.User
+	}
+
+	its.Equal(au, authUser)
 }
