@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestSetAuditAuth(t *testing.T) {
+	its := assert.New(t)
+
+	// Auth user
+	au := &bson.M{"firstname": "test", "lastname": "test test"}
+
+	// Run test
+	res := lxDb.SetAuditAuth(au)
+
+	// Should be type
+	its.IsType(&lxDb.AuditAuth{}, res)
+
+	// Test from args
+	// Simulate wrap in the functions
+	args := []interface{}{res}
+	var authUser interface{}
+
+	switch val := args[0].(type) {
+	case *lxDb.AuditAuth:
+		authUser = val.User
+	}
+
+	its.Equal(au, authUser)
+}
+
 func TestToBsonDoc(t *testing.T) {
 	its := assert.New(t)
 

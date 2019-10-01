@@ -20,7 +20,6 @@ type IBaseRepo interface {
 	GetCollection() interface{}
 	GetDb() interface{}
 	GetRepoName() string
-	SetAuthUser(user interface{}) *AuditAuth
 }
 
 type IBaseRepoAudit interface {
@@ -38,6 +37,11 @@ type UpdateResult struct {
 	ModifiedCount int64
 	UpsertedCount int64
 	UpsertedID    interface{}
+}
+
+// SetAuditAuthUser, returns AuditAuth with user
+func SetAuditAuth(user interface{}) *AuditAuth {
+	return &AuditAuth{User: user}
 }
 
 // ToBsonDoc, convert interface to bson.D

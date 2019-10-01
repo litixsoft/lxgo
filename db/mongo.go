@@ -424,8 +424,3 @@ func (repo *mongoBaseRepo) GetDb() interface{} {
 func (repo *mongoBaseRepo) GetRepoName() string {
 	return repo.collection.Database().Name() + "/" + repo.collection.Name()
 }
-
-// SetAuthUser, set auth user for audit
-func (repo *mongoBaseRepo) SetAuthUser(user interface{}) *AuditAuth {
-	return &AuditAuth{User: user}
-}

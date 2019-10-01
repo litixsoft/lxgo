@@ -123,10 +123,9 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	t.Run("insert", func(t *testing.T) {
 		// Test the base repo
 		base := lxDb.NewMongoBaseRepo(collection)
-		au := lxDb.AuditAuth{User: bson.M{"name": "Timo Liebetrau"}}
 
 		// Channel for close
-		res, err := base.InsertOne(testUser, &au)
+		res, err := base.InsertOne(testUser)
 		its.NoError(err)
 
 		// Check insert result id
@@ -148,12 +147,12 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Insert, act)
-			its.Equal(au.User, usr)
+			its.Equal(au, usr)
 			its.Equal(testUser, data)
 		}
 
@@ -162,7 +161,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 
 		// Channel for close and run test
 		done := make(chan bool)
-		res, err := base.InsertOne(testUser, &au, done)
+		res, err := base.InsertOne(testUser, lxDb.SetAuditAuth(au), done)
 
 		// Wait for close channel and check err
 		<-done
@@ -188,12 +187,12 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Insert, act)
-			its.Equal(au.User, usr)
+			its.Equal(au, usr)
 			its.Equal(testUser, data)
 		}
 
@@ -203,7 +202,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		// Channel for close and run test
 		done := make(chan bool)
 		chanErr := make(chan error)
-		_, err := base.InsertOne(testUser, &au, done, chanErr)
+		_, err := base.InsertOne(testUser, lxDb.SetAuditAuth(au), done, chanErr)
 
 		// Wait for close and error channel from audit thread
 		its.Error(<-chanErr)
@@ -215,7 +214,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	t.Run("with timeout and options", func(t *testing.T) {
 		// Test the base repo
 		base := lxDb.NewMongoBaseRepo(collection)
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Channel for close
 		res, err := base.InsertOne(testUser, &au, time.Second*10, options.InsertOne().SetBypassDocumentValidation(false))
@@ -488,12 +487,12 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		its.NoError(err)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check params with doAction
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Update, action)
-			its.Equal(au.User, user)
+			its.Equal(au, user)
 			its.Equal(doc, data)
 		}
 
@@ -503,7 +502,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
 		done := make(chan bool)
-		err = base.UpdateOne(filter, update, &au, done)
+		err = base.UpdateOne(filter, update, lxDb.SetAuditAuth(au), done)
 
 		// Wait for close channel and check err
 		<-done
@@ -532,12 +531,12 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		its.NoError(err)
 
 		// AuthUser
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check params with doAction
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Update, action)
-			its.Equal(au.User, user)
+			its.Equal(au, user)
 			its.Equal(doc, data)
 		}
 
@@ -548,7 +547,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		update := bson.D{{"$set", bson.D{{"name", tu.Name}}}}
 		done := make(chan bool)
 		chanErr := make(chan error)
-		err = base.UpdateOne(filter, update, &au, done, chanErr)
+		err = base.UpdateOne(filter, update, lxDb.SetAuditAuth(au), done, chanErr)
 
 		// Wait for close and error channel from audit thread
 		its.Error(<-chanErr)
@@ -646,12 +645,12 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		user := testUsers[6]
 
 		// AuditAuth
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Delete, act)
-			its.Equal(au.User, usr)
+			its.Equal(au, usr)
 			its.Equal(bson.M{"_id": user.Id}, data)
 		}
 
@@ -660,7 +659,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 
 		filter := bson.D{{"_id", user.Id}}
 		done := make(chan bool)
-		res, err := base.DeleteOne(filter, &au, done)
+		res, err := base.DeleteOne(filter, lxDb.SetAuditAuth(au), done)
 
 		// Wait for close channel and check err
 		<-done
@@ -686,12 +685,12 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		user := testUsers[7]
 
 		// AuditAuth
-		au := lxDb.AuditAuth{User: &bson.M{"name": "Timo Liebetrau"}}
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Delete, act)
-			its.Equal(au.User, usr)
+			its.Equal(au, usr)
 			its.Equal(bson.M{"_id": user.Id}, data)
 		}
 
@@ -702,7 +701,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		filter := bson.D{{"_id", user.Id}}
 		done := make(chan bool)
 		chanErr := make(chan error)
-		res, err := base.DeleteOne(filter, &au, done, chanErr)
+		res, err := base.DeleteOne(filter, lxDb.SetAuditAuth(au), done, chanErr)
 
 		// Wait for close and error channel from audit thread
 		its.Error(<-chanErr)
@@ -818,38 +817,4 @@ func TestMongoBaseRepo_GetRepoName(t *testing.T) {
 	expect := db.Name() + "/" + collection.Name()
 
 	its.Equal(expect, base.GetRepoName())
-}
-
-func TestMongoBaseRepo_SetAuthUser(t *testing.T) {
-	its := assert.New(t)
-
-	client, err := lxDb.GetMongoDbClient(dbHost)
-	its.NoError(err)
-
-	db := client.Database(TestDbName)
-	collection := db.Collection(TestCollection)
-
-	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(collection)
-
-	// Auth user
-	au := &bson.M{"firstname": "test", "lastname": "test test"}
-
-	// Run test
-	res := base.SetAuthUser(au)
-
-	// Should be type
-	its.IsType(&lxDb.AuditAuth{}, res)
-
-	// Test from args
-	// Simulate wrap in the functions
-	args := []interface{}{res}
-	var authUser interface{}
-
-	switch val := args[0].(type) {
-	case *lxDb.AuditAuth:
-		authUser = val.User
-	}
-
-	its.Equal(au, authUser)
 }
