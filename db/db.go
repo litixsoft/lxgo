@@ -15,7 +15,7 @@ type IBaseRepo interface {
 	FindOne(filter interface{}, result interface{}, args ...interface{}) error
 	UpdateOne(filter interface{}, update interface{}, args ...interface{}) error
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
-	DeleteOne(filter interface{}, args ...interface{}) (int64, error)
+	DeleteOne(filter interface{}, args ...interface{}) error
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
 	GetCollection() interface{}
 	GetDb() interface{}

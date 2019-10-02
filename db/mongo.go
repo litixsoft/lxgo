@@ -323,10 +323,10 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 }
 
 // DeleteOne deletes a single document from the collection.
-func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) error {
 	// Default values
 	timeout := DefaultTimeout
-	opts := &options.DeleteOptions{}
+	opts := &options.FindOneAndDeleteOptions{}
 	var authUser interface{}
 	done := make(chan bool)
 	chanErr := make(chan error)
@@ -335,7 +335,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 		switch val := args[i].(type) {
 		case time.Duration:
 			timeout = val
-		case *options.DeleteOptions:
+		case *options.FindOneAndDeleteOptions:
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
@@ -346,20 +346,16 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 		}
 	}
 
-	// Check id in filter
-	id, ok := filter.(bson.D).Map()["_id"].(primitive.ObjectID)
-	if !ok {
-		return int64(0), NewNotFoundError("error in filter, _id not found or wrong type")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Return DeletedCount
-	count := int64(0)
-	res, err := repo.collection.DeleteOne(ctx, filter, opts)
-	if res != nil {
-		count = res.DeletedCount
+	// Find document before delete for audit
+	var beforeDelete bson.D
+	if err := repo.collection.FindOneAndDelete(ctx, filter, opts).Decode(&beforeDelete); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return NewNotFoundError(err.Error())
+		}
+		return err
 	}
 
 	// Audit
@@ -371,7 +367,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": id}); err != nil {
+			if err := repo.audit.LogEntry(Delete, authUser, beforeDelete); err != nil {
 				log.Printf("audit delete error: %v\n", err)
 				chanErr <- err
 				return
@@ -379,7 +375,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) (i
 		}()
 	}
 
-	return count, err
+	return nil
 }
 
 // DeleteMany deletes multiple documents from the collection.
