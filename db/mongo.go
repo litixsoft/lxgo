@@ -367,7 +367,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(Delete, authUser, beforeDelete); err != nil {
+			if err := repo.audit.LogEntry(Delete, authUser, &beforeDelete); err != nil {
 				log.Printf("audit delete error: %v\n", err)
 				chanErr <- err
 				return
