@@ -74,16 +74,15 @@ func (mr *MockIBaseRepoMockRecorder) DeleteMany(arg0 interface{}, arg1 ...interf
 }
 
 // DeleteOne mocks base method
-func (m *MockIBaseRepo) DeleteOne(arg0 interface{}, arg1 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) DeleteOne(arg0 interface{}, arg1 ...interface{}) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteOne", varargs...)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // DeleteOne indicates an expected call of DeleteOne
@@ -148,6 +147,48 @@ func (mr *MockIBaseRepoMockRecorder) FindOne(arg0, arg1 interface{}, arg2 ...int
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOne", reflect.TypeOf((*MockIBaseRepo)(nil).FindOne), varargs...)
+}
+
+// GetCollection mocks base method
+func (m *MockIBaseRepo) GetCollection() interface{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCollection")
+	ret0, _ := ret[0].(interface{})
+	return ret0
+}
+
+// GetCollection indicates an expected call of GetCollection
+func (mr *MockIBaseRepoMockRecorder) GetCollection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCollection", reflect.TypeOf((*MockIBaseRepo)(nil).GetCollection))
+}
+
+// GetDb mocks base method
+func (m *MockIBaseRepo) GetDb() interface{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDb")
+	ret0, _ := ret[0].(interface{})
+	return ret0
+}
+
+// GetDb indicates an expected call of GetDb
+func (mr *MockIBaseRepoMockRecorder) GetDb() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDb", reflect.TypeOf((*MockIBaseRepo)(nil).GetDb))
+}
+
+// GetRepoName mocks base method
+func (m *MockIBaseRepo) GetRepoName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRepoName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRepoName indicates an expected call of GetRepoName
+func (mr *MockIBaseRepoMockRecorder) GetRepoName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRepoName", reflect.TypeOf((*MockIBaseRepo)(nil).GetRepoName))
 }
 
 // InsertMany mocks base method
