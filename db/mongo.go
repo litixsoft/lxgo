@@ -290,36 +290,81 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 }
 
 // UpdateMany updates multiple documents in the collection.
-func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error) {
+func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateManyResult, error) {
 	// Default values
 	timeout := DefaultTimeout
-	opts := &options.UpdateOptions{}
+	//opts := &options.UpdateOptions{}
+	var authUser interface{}
+	subIdName := "_id"
 
-	for i := 0; i < len(args); i++ {
-		switch val := args[i].(type) {
-		case time.Duration:
-			timeout = val
-		case *options.UpdateOptions:
-			opts = val
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	//for i := 0; i < len(args); i++ {
+	//	switch val := args[i].(type) {
+	//	case time.Duration:
+	//		//timeout = val
+	//	case *options.UpdateOptions:
+	//		//opts = val
+	//	}
+	//}
 
 	// Return UpdateResult
-	ret := new(UpdateResult)
-	res, err := repo.collection.UpdateMany(ctx, filter, update, opts)
+	ret := new(UpdateManyResult)
 
-	// Convert to UpdateResult
-	if res != nil {
-		ret.MatchedCount = res.MatchedCount
-		ret.ModifiedCount = res.ModifiedCount
-		ret.UpsertedCount = res.UpsertedCount
-		ret.UpsertedID = res.UpsertedID
+	// UpdateOne func for audit update many
+	updOneFn := func(filter bson.D) (*mongo.UpdateResult, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		return repo.collection.UpdateOne(ctx, filter, update)
 	}
 
-	return ret, err
+	// Find all with filter for audit
+	var allDocs []interface{}
+	if err := repo.Find(filter, &allDocs); err != nil {
+		return nil, err
+	}
+
+	var auditEntries bson.A
+	for _, val := range allDocs {
+		subFilter := bson.D{{subIdName, val.(bson.D).Map()[subIdName]}}
+		res, err := updOneFn(subFilter)
+		if err != nil {
+			ret.FailedCount++
+			ret.FailedIDs = append(ret.FailedIDs, val.(bson.D).Map()[subIdName])
+		}
+		if res != nil {
+			ret.MatchedCount += res.MatchedCount
+			ret.ModifiedCount += res.ModifiedCount
+			ret.UpsertedCount += res.UpsertedCount
+			if res.UpsertedID != nil {
+				ret.UpsertedIDs = append(ret.UpsertedIDs, res.UpsertedID)
+			}
+		}
+
+		//if err := repo.UpdateOne(subFilter, update); err != nil {
+		//	ret.FailedCount++
+		//	ret.FailedID = val.(bson.D).Map()["_id"]
+		//}
+		//ret.ModifiedCount++
+
+		auditEntries = append(auditEntries, bson.M{"action": Update, "user": authUser, "data": val})
+		ret.AuditCount++
+	}
+
+	//ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	//defer cancel()
+
+	// Return UpdateResult
+	//ret := new(UpdateResult)
+	//res, err := repo.collection.UpdateMany(ctx, filter, update, opts)
+
+	// Convert to UpdateResult
+	//if res != nil {
+	//	ret.MatchedCount = res.MatchedCount
+	//	ret.ModifiedCount = res.ModifiedCount
+	//	ret.UpsertedCount = res.UpsertedCount
+	//	ret.UpsertedID = res.UpsertedID
+	//}
+
+	return ret, nil
 }
 
 // DeleteOne deletes a single document from the collection.

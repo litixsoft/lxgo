@@ -14,7 +14,7 @@ type IBaseRepo interface {
 	Find(filter interface{}, result interface{}, args ...interface{}) error
 	FindOne(filter interface{}, result interface{}, args ...interface{}) error
 	UpdateOne(filter interface{}, update interface{}, args ...interface{}) error
-	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateResult, error)
+	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateManyResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) error
 	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
 	GetCollection() interface{}
@@ -37,6 +37,16 @@ type UpdateResult struct {
 	ModifiedCount int64
 	UpsertedCount int64
 	UpsertedID    interface{}
+}
+
+type UpdateManyResult struct {
+	MatchedCount  int64
+	ModifiedCount int64
+	AuditCount    int64
+	FailedCount   int64
+	FailedIDs     []interface{}
+	UpsertedCount int64
+	UpsertedIDs   []interface{}
 }
 
 // SetAuditAuthUser, returns AuditAuth with user
