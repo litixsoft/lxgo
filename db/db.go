@@ -24,11 +24,17 @@ type IBaseRepo interface {
 
 type IBaseRepoAudit interface {
 	LogEntry(action string, user, data interface{}, timeout ...time.Duration) error
+	LogEntries(entries []interface{}, timeout ...time.Duration) error
 }
 
 // AuthAudit, auth user for audit
 type AuditAuth struct {
 	User interface{}
+}
+
+// UpdateManySubIdName, id name for sub doc in filter
+type UpdateManySubIdName struct {
+	Name string
 }
 
 // UpdateResult
@@ -42,11 +48,10 @@ type UpdateResult struct {
 type UpdateManyResult struct {
 	MatchedCount  int64
 	ModifiedCount int64
-	AuditCount    int64
 	FailedCount   int64
 	FailedIDs     []interface{}
 	UpsertedCount int64
-	UpsertedIDs   []interface{}
+	UpsertedID    interface{}
 }
 
 // SetAuditAuthUser, returns AuditAuth with user

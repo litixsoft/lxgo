@@ -232,14 +232,14 @@ func (mr *MockIBaseRepoMockRecorder) InsertOne(arg0 interface{}, arg1 ...interfa
 }
 
 // UpdateMany mocks base method
-func (m *MockIBaseRepo) UpdateMany(arg0, arg1 interface{}, arg2 ...interface{}) (*db.UpdateResult, error) {
+func (m *MockIBaseRepo) UpdateMany(arg0, arg1 interface{}, arg2 ...interface{}) (*db.UpdateManyResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateMany", varargs...)
-	ret0, _ := ret[0].(*db.UpdateResult)
+	ret0, _ := ret[0].(*db.UpdateManyResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

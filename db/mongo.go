@@ -2,6 +2,7 @@ package lxDb
 
 import (
 	"context"
+	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -293,78 +294,111 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateManyResult, error) {
 	// Default values
 	timeout := DefaultTimeout
-	//opts := &options.UpdateOptions{}
+	opts := &options.UpdateOptions{}
 	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
 	subIdName := "_id"
 
-	//for i := 0; i < len(args); i++ {
-	//	switch val := args[i].(type) {
-	//	case time.Duration:
-	//		//timeout = val
-	//	case *options.UpdateOptions:
-	//		//opts = val
-	//	}
-	//}
-
-	// Return UpdateResult
-	ret := new(UpdateManyResult)
-
-	// UpdateOne func for audit update many
-	updOneFn := func(filter bson.D) (*mongo.UpdateResult, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		return repo.collection.UpdateOne(ctx, filter, update)
-	}
-
-	// Find all with filter for audit
-	var allDocs []interface{}
-	if err := repo.Find(filter, &allDocs); err != nil {
-		return nil, err
-	}
-
-	var auditEntries bson.A
-	for _, val := range allDocs {
-		subFilter := bson.D{{subIdName, val.(bson.D).Map()[subIdName]}}
-		res, err := updOneFn(subFilter)
-		if err != nil {
-			ret.FailedCount++
-			ret.FailedIDs = append(ret.FailedIDs, val.(bson.D).Map()[subIdName])
+	// Check args
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.UpdateOptions:
+			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		case *UpdateManySubIdName:
+			subIdName = val.Name
 		}
-		if res != nil {
-			ret.MatchedCount += res.MatchedCount
-			ret.ModifiedCount += res.ModifiedCount
-			ret.UpsertedCount += res.UpsertedCount
-			if res.UpsertedID != nil {
-				ret.UpsertedIDs = append(ret.UpsertedIDs, res.UpsertedID)
+	}
+
+	// Return UpdateManyResult
+	updateManyResult := new(UpdateManyResult)
+
+	// Audit
+	if authUser != nil && repo.audit != nil {
+		// UpdateOne func for audit update many
+		updOneFn := func(subFilter bson.D, afterUpdate *bson.D) error {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			return repo.collection.FindOneAndUpdate(ctx, subFilter, update,
+				options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(afterUpdate)
+		}
+
+		// Find all with filter for audit
+		var allDocs []interface{}
+		if err := repo.Find(filter, &allDocs); err != nil {
+			return nil, err
+		}
+
+		// Array for audits
+		var auditEntries bson.A
+
+		// Update docs and log entries
+		for _, val := range allDocs {
+			subFilter := bson.D{{subIdName, val.(bson.D).Map()[subIdName]}}
+
+			// UpdateOne
+			var afterUpdate bson.D
+			if err := updOneFn(subFilter, &afterUpdate); err != nil {
+				// Check is unknown mongo error
+				if err != mongo.ErrNoDocuments {
+					return updateManyResult, err
+				}
+
+				// Not found, add subId to failedCount and Ids
+				updateManyResult.FailedCount++
+				updateManyResult.FailedIDs = append(updateManyResult.FailedIDs, subFilter.Map()[subIdName])
+			} else {
+				updateManyResult.MatchedCount++
+				// Is Modified use DeepEqual
+				if !cmp.Equal(val, afterUpdate) {
+					updateManyResult.ModifiedCount++
+					// Audit only is modified
+					auditEntries = append(auditEntries, bson.M{"action": Update, "user": authUser, "data": afterUpdate})
+				}
 			}
 		}
 
-		//if err := repo.UpdateOne(subFilter, update); err != nil {
-		//	ret.FailedCount++
-		//	ret.FailedID = val.(bson.D).Map()["_id"]
-		//}
-		//ret.ModifiedCount++
+		// Start audit async
+		go func() {
+			defer func() {
+				done <- true
+			}()
 
-		auditEntries = append(auditEntries, bson.M{"action": Update, "user": authUser, "data": val})
-		ret.AuditCount++
+			// Write to logger
+			if err := repo.audit.LogEntries(auditEntries); err != nil {
+				log.Printf("update audit error:%v\n", err)
+				chanErr <- err
+				return
+			}
+		}()
+
+		return updateManyResult, nil
 	}
 
-	//ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	//defer cancel()
+	// Context for update
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	// Return UpdateResult
-	//ret := new(UpdateResult)
-	//res, err := repo.collection.UpdateMany(ctx, filter, update, opts)
+	// Without audit UpdateMany will be performed
+	res, err := repo.collection.UpdateMany(ctx, filter, update, opts)
 
-	// Convert to UpdateResult
-	//if res != nil {
-	//	ret.MatchedCount = res.MatchedCount
-	//	ret.ModifiedCount = res.ModifiedCount
-	//	ret.UpsertedCount = res.UpsertedCount
-	//	ret.UpsertedID = res.UpsertedID
-	//}
+	// Convert to UpdateManyResult
+	if res != nil {
+		updateManyResult.MatchedCount = res.MatchedCount
+		updateManyResult.ModifiedCount = res.ModifiedCount
+		updateManyResult.UpsertedCount = res.UpsertedCount
+		updateManyResult.UpsertedID = res.UpsertedID
+	}
 
-	return ret, nil
+	return updateManyResult, err
 }
 
 // DeleteOne deletes a single document from the collection.

@@ -33,6 +33,25 @@ func (m *MockIBaseRepoAudit) EXPECT() *MockIBaseRepoAuditMockRecorder {
 	return m.recorder
 }
 
+// LogEntries mocks base method
+func (m *MockIBaseRepoAudit) LogEntries(arg0 []interface{}, arg1 ...time.Duration) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "LogEntries", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogEntries indicates an expected call of LogEntries
+func (mr *MockIBaseRepoAuditMockRecorder) LogEntries(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntries", reflect.TypeOf((*MockIBaseRepoAudit)(nil).LogEntries), varargs...)
+}
+
 // LogEntry mocks base method
 func (m *MockIBaseRepoAudit) LogEntry(arg0 string, arg1, arg2 interface{}, arg3 ...time.Duration) error {
 	m.ctrl.T.Helper()
