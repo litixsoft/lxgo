@@ -578,7 +578,6 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
-	setupData(db)
 
 	// Mock for base repo
 	mockCtrl := gomock.NewController(t)
@@ -593,11 +592,14 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 	update := bson.D{{"$set",
 		bson.D{{"is_active", true}},
 	}}
+	chkFilter := bson.D{{"gender", "Female"}, {"is_active", true}}
 
 	// AuditAuth user
 	au := &bson.M{"name": "Timo Liebetrau"}
 
 	t.Run("without audit", func(t *testing.T) {
+		setupData(db)
+
 		res, err := base.UpdateMany(filter, update, time.Second*10, options.Update())
 		its.NoError(err)
 
@@ -612,12 +614,13 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		its.Nil(res.UpsertedID)
 
 		// Check with Count
-		filter = bson.D{{"gender", "Female"}, {"is_active", true}}
-		count, err := base.CountDocuments(filter)
+		count, err := base.CountDocuments(chkFilter)
 		its.NoError(err)
 		its.Equal(int64(13), count)
 	})
 	t.Run("with audit", func(t *testing.T) {
+		setupData(db)
+
 		// Check mock params
 		doAction := func(entries []interface{}, elem ...interface{}) {
 			// Log entries for audit should be 8
@@ -646,8 +649,45 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		its.Nil(res.UpsertedID)
 
 		// Check with Count
-		filter = bson.D{{"gender", "Female"}, {"is_active", true}}
-		count, err := base.CountDocuments(filter)
+		count, err := base.CountDocuments(chkFilter)
+		its.NoError(err)
+		its.Equal(int64(13), count)
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		setupData(db)
+
+		// Check mock params
+		doAction := func(entries []interface{}, elem ...interface{}) {
+			// Log entries for audit should be 8
+			its.Len(entries, 8)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(
+			errors.New("test-error")).Do(doAction).Times(1)
+
+		done := make(chan bool)
+		chanErr := make(chan error)
+		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au), done, chanErr)
+
+		// Wait for close channel and check err
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+		its.NoError(err)
+
+		// 13 female in db
+		its.Equal(int64(13), res.MatchedCount)
+		// 8 inactive female
+		its.Equal(int64(8), res.ModifiedCount)
+		// 0 fails and upserted
+		its.Equal(int64(0), res.FailedCount)
+		its.Empty(res.FailedIDs)
+		its.Equal(int64(0), res.UpsertedCount)
+		its.Nil(res.UpsertedID)
+
+		// Check with Count
+		count, err := base.CountDocuments(chkFilter)
 		its.NoError(err)
 		its.Equal(int64(13), count)
 	})
