@@ -37,14 +37,6 @@ type SubIdName struct {
 	Name string
 }
 
-// UpdateResult
-type UpdateResult struct {
-	MatchedCount  int64
-	ModifiedCount int64
-	UpsertedCount int64
-	UpsertedID    interface{}
-}
-
 type InsertManyResult struct {
 	FailedCount int64
 	InsertedIDs []interface{}

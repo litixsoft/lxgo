@@ -54,14 +54,14 @@ func (mr *MockIBaseRepoMockRecorder) CountDocuments(arg0 interface{}, arg1 ...in
 }
 
 // DeleteMany mocks base method
-func (m *MockIBaseRepo) DeleteMany(arg0 interface{}, arg1 ...interface{}) (int64, error) {
+func (m *MockIBaseRepo) DeleteMany(arg0 interface{}, arg1 ...interface{}) (*db.DeleteManyResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteMany", varargs...)
-	ret0, _ := ret[0].(int64)
+	ret0, _ := ret[0].(*db.DeleteManyResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -192,14 +192,14 @@ func (mr *MockIBaseRepoMockRecorder) GetRepoName() *gomock.Call {
 }
 
 // InsertMany mocks base method
-func (m *MockIBaseRepo) InsertMany(arg0 []interface{}, arg1 ...interface{}) ([]interface{}, error) {
+func (m *MockIBaseRepo) InsertMany(arg0 []interface{}, arg1 ...interface{}) (*db.InsertManyResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "InsertMany", varargs...)
-	ret0, _ := ret[0].([]interface{})
+	ret0, _ := ret[0].(*db.InsertManyResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
