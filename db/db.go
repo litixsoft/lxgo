@@ -8,7 +8,7 @@ import (
 // IBaseRepo
 type IBaseRepo interface {
 	InsertOne(doc interface{}, args ...interface{}) (interface{}, error)
-	InsertMany(docs []interface{}, args ...interface{}) ([]interface{}, error)
+	InsertMany(docs []interface{}, args ...interface{}) (*InsertManyResult, error)
 	CountDocuments(filter interface{}, args ...interface{}) (int64, error)
 	EstimatedDocumentCount(args ...interface{}) (int64, error)
 	Find(filter interface{}, result interface{}, args ...interface{}) error
@@ -43,6 +43,11 @@ type UpdateResult struct {
 	ModifiedCount int64
 	UpsertedCount int64
 	UpsertedID    interface{}
+}
+
+type InsertManyResult struct {
+	FailedCount int64
+	InsertedIDs []interface{}
 }
 
 type UpdateManyResult struct {

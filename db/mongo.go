@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -92,7 +91,7 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 
 	if authUser != nil && repo.audit != nil {
 		// Start audit async
-		go func(id primitive.ObjectID) {
+		go func() {
 			defer func() {
 				done <- true
 			}()
@@ -103,16 +102,20 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 				chanErr <- err
 				return
 			}
-		}(res.InsertedID.(primitive.ObjectID))
+		}()
 	}
 
 	return res.InsertedID, nil
 }
 
 // InsertMany inserts the provided documents.
-func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) ([]interface{}, error) {
+func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (*InsertManyResult, error) {
 	timeout := DefaultTimeout
 	opts := &options.InsertManyOptions{}
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -120,7 +123,71 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 			timeout = val
 		case *options.InsertManyOptions:
 			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		case *SubIdName:
+			subIdName = val.Name
 		}
+	}
+
+	// Return UpdateManyResult
+	insertManyResult := new(InsertManyResult)
+
+	// Audit
+	if authUser != nil && repo.audit != nil {
+		// InsertOne func for audit insert many
+		insertOneFn := func(doc interface{}) (*mongo.InsertOneResult, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			return repo.collection.InsertOne(ctx, doc)
+		}
+
+		// Array for audits
+		var auditEntries bson.A
+
+		// Insert docs and create log entries
+		for _, doc := range docs {
+			// InsertOne
+			res, err := insertOneFn(&doc)
+			if err != nil || res.InsertedID == nil {
+				// Error, increment FailedCount
+				insertManyResult.FailedCount++
+			} else {
+				// Add inserted id
+				insertManyResult.InsertedIDs = append(insertManyResult.InsertedIDs, res.InsertedID)
+
+				// Convert for audit
+				bd, err := ToBsonDoc(doc)
+				if err != nil {
+					return insertManyResult, err
+				}
+
+				// Prepend id to doc
+				*bd = append(bson.D{{subIdName, res.InsertedID}}, *bd...)
+
+				// Audit only is inserted,
+				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bd})
+			}
+		}
+		// Start audit async
+		go func() {
+			defer func() {
+				done <- true
+			}()
+
+			// Write to logger
+			if err := repo.audit.LogEntries(auditEntries); err != nil {
+				log.Printf("insert many audit error:%v\n", err)
+				chanErr <- err
+				return
+			}
+		}()
+
+		return insertManyResult, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -128,10 +195,15 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 
 	res, err := repo.collection.InsertMany(ctx, docs, opts)
 	if err != nil {
-		return nil, err
+		return insertManyResult, err
 	}
 
-	return res.InsertedIDs, nil
+	// Convert
+	if res != nil {
+		insertManyResult.InsertedIDs = res.InsertedIDs
+	}
+
+	return insertManyResult, nil
 }
 
 // CountDocuments gets the number of documents matching the filter.

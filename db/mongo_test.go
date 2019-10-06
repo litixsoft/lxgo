@@ -235,45 +235,158 @@ func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
 	its := assert.New(t)
 
 	client, err := lxDb.GetMongoDbClient(dbHost)
-	lxHelper.HandlePanicErr(err)
+	its.NoError(err)
 
 	db := client.Database(TestDbName)
 	collection := db.Collection(TestCollection)
 
-	// Drop for test
-	its.NoError(collection.Drop(context.Background()))
+	// Mock for base repo
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
 
-	testUsers := make([]interface{}, 0)
-	for i := 0; i < 5; i++ {
-		name := fmt.Sprintf("TestName%d", i)
-		email := fmt.Sprintf("test%d@test.de", i)
-		testUsers = append(testUsers, TestUser{Name: name, Email: email})
-	}
+	// Test the base repo with mock
+	base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
-	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(collection)
-	res, err := base.InsertMany(testUsers, time.Second*10, options.InsertMany())
-	its.NoError(err)
-	its.Equal(5, len(res))
+	// AuditAuth user
+	au := &bson.M{"name": "Timo Liebetrau"}
 
-	// Find and compare
-	var checkUsers []TestUser
-	filter := bson.D{}
-	err = base.Find(filter, &checkUsers)
-	its.NoError(err)
+	t.Run("insert many", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
 
-	// Check users
-	for i, v := range checkUsers {
-		its.Equal(testUsers[i].(TestUser).Name, v.Name)
-		its.Equal(testUsers[i].(TestUser).Email, v.Email)
-	}
+		testUsers := make([]interface{}, 0)
+		for i := 0; i < 5; i++ {
+			name := fmt.Sprintf("TestName%d", i)
+			email := fmt.Sprintf("test%d@test.de", i)
+			testUsers = append(testUsers, TestUser{Name: name, Email: email})
+		}
 
-	// Check ids
-	for _, id := range res {
-		var res TestUser
-		its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
-		its.Equal(id, res.Id)
-	}
+		// Test the base repo
+		res, err := base.InsertMany(testUsers, time.Second*10, options.InsertMany())
+		its.NoError(err)
+		its.Equal(5, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+
+		// Find and compare
+		var checkUsers []TestUser
+		err = base.Find(bson.D{}, &checkUsers)
+		its.NoError(err)
+
+		// Check users
+		for i, v := range checkUsers {
+			its.Equal(testUsers[i].(TestUser).Name, v.Name)
+			its.Equal(testUsers[i].(TestUser).Email, v.Email)
+		}
+
+		// Check ids
+		for _, id := range res.InsertedIDs {
+			var res TestUser
+			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
+			its.Equal(id, res.Id)
+		}
+	})
+	t.Run("with audit", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		testUsers := make([]interface{}, 0)
+		for i := 0; i < 5; i++ {
+			name := fmt.Sprintf("TestName%d", i)
+			email := fmt.Sprintf("test%d@test.de", i)
+			testUsers = append(testUsers, TestUser{Name: name, Email: email})
+		}
+
+		// Check mock params
+		doAction := func(entries []interface{}, elem ...interface{}) {
+			// Log entries for audit should be 5
+			its.Len(entries, 5)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(nil).Do(doAction).Times(1)
+
+		// Test the base repo
+		done := make(chan bool)
+		sidName := &lxDb.SubIdName{Name: "_id"}
+		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au), done, sidName)
+
+		// Wait for close channel and check err
+		<-done
+
+		its.NoError(err)
+		its.Equal(5, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+
+		// Find and compare
+		var checkUsers []TestUser
+		err = base.Find(bson.D{}, &checkUsers)
+		its.NoError(err)
+
+		// Check users
+		for i, v := range checkUsers {
+			its.Equal(testUsers[i].(TestUser).Name, v.Name)
+			its.Equal(testUsers[i].(TestUser).Email, v.Email)
+		}
+
+		// Check ids
+		for _, id := range res.InsertedIDs {
+			var res TestUser
+			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
+			its.Equal(id, res.Id)
+		}
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		testUsers := make([]interface{}, 0)
+		for i := 0; i < 5; i++ {
+			name := fmt.Sprintf("TestName%d", i)
+			email := fmt.Sprintf("test%d@test.de", i)
+			testUsers = append(testUsers, TestUser{Name: name, Email: email})
+		}
+
+		// Check mock params
+		doAction := func(entries []interface{}, elem ...interface{}) {
+			// Log entries for audit should be 5
+			its.Len(entries, 5)
+		}
+
+		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(
+			errors.New("test-error")).Do(doAction).Times(1)
+
+		// Test the base repo
+		done := make(chan bool)
+		chanErr := make(chan error)
+		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au), done, chanErr)
+
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+
+		its.NoError(err)
+		its.Equal(5, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+
+		// Find and compare
+		var checkUsers []TestUser
+		err = base.Find(bson.D{}, &checkUsers)
+		its.NoError(err)
+
+		// Check users
+		for i, v := range checkUsers {
+			its.Equal(testUsers[i].(TestUser).Name, v.Name)
+			its.Equal(testUsers[i].(TestUser).Email, v.Email)
+		}
+
+		// Check ids
+		for _, id := range res.InsertedIDs {
+			var res TestUser
+			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
+			its.Equal(id, res.Id)
+		}
+	})
 }
 
 func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
