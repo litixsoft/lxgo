@@ -12,7 +12,6 @@ require (
 	github.com/google/go-cmp v0.3.1
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/pkg/errors v0.8.1
-	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/stretchr/testify v1.3.0
 	github.com/tidwall/pretty v1.0.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
@@ -25,8 +24,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190926180335-cea2066c6411
 	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 // indirect
 	google.golang.org/appengine v1.6.4 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 )
