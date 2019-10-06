@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/globalsign/mgo/bson"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
+	"go.mongodb.org/mongo-driver/bson"
 	"io/ioutil"
 	"net/http"
 )
