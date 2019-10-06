@@ -313,7 +313,7 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			done = val
 		case chan error:
 			chanErr = val
-		case *UpdateManySubIdName:
+		case *SubIdName:
 			subIdName = val.Name
 		}
 	}
@@ -347,12 +347,7 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			// UpdateOne
 			var afterUpdate bson.D
 			if err := updOneFn(subFilter, &afterUpdate); err != nil {
-				// Check is unknown mongo error
-				if err != mongo.ErrNoDocuments {
-					return updateManyResult, err
-				}
-
-				// Not found, add subId to failedCount and Ids
+				// Error, add subId to failedCount and Ids
 				updateManyResult.FailedCount++
 				updateManyResult.FailedIDs = append(updateManyResult.FailedIDs, subFilter.Map()[subIdName])
 			} else {
@@ -458,10 +453,14 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 }
 
 // DeleteMany deletes multiple documents from the collection.
-func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (int64, error) {
+func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (*DeleteManyResult, error) {
 	// Default values
 	timeout := DefaultTimeout
 	opts := &options.DeleteOptions{}
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -469,20 +468,85 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 			timeout = val
 		case *options.DeleteOptions:
 			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		case *SubIdName:
+			subIdName = val.Name
 		}
+	}
+
+	// Return UpdateManyResult
+	deleteManyResult := new(DeleteManyResult)
+
+	// Audit
+	if authUser != nil && repo.audit != nil {
+		// DeleteOne func for audit update many
+		delOneFn := func(subFilter bson.D, beforeDelete *bson.D) error {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			return repo.collection.FindOneAndDelete(ctx, subFilter).Decode(beforeDelete)
+		}
+
+		// Find all with filter for audit
+		var allDocs []interface{}
+		if err := repo.Find(filter, &allDocs); err != nil {
+			return deleteManyResult, err
+		}
+
+		// Array for audits
+		var auditEntries bson.A
+
+		// Delete docs and log entries
+		for _, doc := range allDocs {
+			subFilter := bson.D{{subIdName, doc.(bson.D).Map()[subIdName]}}
+
+			// DeleteOne
+			var beforeDelete bson.D
+			if err := delOneFn(subFilter, &beforeDelete); err != nil {
+				// Error, add subId to failedCount and Ids
+				deleteManyResult.FailedCount++
+				deleteManyResult.FailedIDs = append(deleteManyResult.FailedIDs, subFilter.Map()[subIdName])
+			} else {
+				// Is deleted
+				deleteManyResult.DeletedCount++
+
+				// Audit only is deleted,
+				// data save only sub id by deleted
+				data := bson.D{{subIdName, subFilter.Map()[subIdName]}}
+				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
+			}
+		}
+
+		// Start audit async
+		go func() {
+			defer func() {
+				done <- true
+			}()
+
+			// Write to logger
+			if err := repo.audit.LogEntries(auditEntries); err != nil {
+				log.Printf("delete audit error:%v\n", err)
+				chanErr <- err
+				return
+			}
+		}()
+
+		return deleteManyResult, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Return DeletedCount
-	count := int64(0)
 	res, err := repo.collection.DeleteMany(ctx, filter, opts)
 	if res != nil {
-		count = res.DeletedCount
+		deleteManyResult.DeletedCount = res.DeletedCount
 	}
 
-	return count, err
+	return deleteManyResult, err
 }
 
 // GetCollection get instance of repo collection.

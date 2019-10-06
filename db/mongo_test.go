@@ -631,7 +631,7 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(nil).Do(doAction).Times(1)
 
 		done := make(chan bool)
-		sidName := &lxDb.UpdateManySubIdName{Name: "_id"}
+		sidName := &lxDb.SubIdName{Name: "_id"}
 		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au), done, sidName)
 
 		// Wait for close channel and check err
@@ -670,7 +670,6 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		chanErr := make(chan error)
 		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au), done, chanErr)
 
-		// Wait for close channel and check err
 		// Wait for close and error channel from audit thread
 		its.Error(<-chanErr)
 		its.True(<-done)
@@ -845,22 +844,104 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
-	setupData(db)
 
-	// Test the base repo
-	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+	// Mock for base repo
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+	// Test the base repo with mock
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection), mockIBaseRepoAudit)
 
 	// All Males, should be 12
 	filter := bson.D{{"gender", "Male"}}
-	res, err := base.DeleteMany(filter, time.Second*10, options.Delete())
-	its.NoError(err)
-	its.Equal(int64(12), res)
+	chkFilter := bson.D{{"gender", "Male"}}
 
-	// Check with Count
-	filter = bson.D{{"gender", "Male"}}
-	count, err := base.CountDocuments(filter)
-	its.NoError(err)
-	its.Equal(int64(0), count)
+	// AuditAuth user
+	au := &bson.M{"name": "Timo Liebetrau"}
+
+	t.Run("delete", func(t *testing.T) {
+		setupData(db)
+
+		res, err := base.DeleteMany(filter, time.Second*10, options.Delete())
+		its.NoError(err)
+
+		// 12 male in db
+		its.Equal(int64(12), res.DeletedCount)
+		// 0 fails
+		its.Equal(int64(0), res.FailedCount)
+		its.Empty(res.FailedIDs)
+
+		// Check with Count
+		count, err := base.CountDocuments(chkFilter)
+		its.NoError(err)
+		its.Equal(int64(0), count)
+	})
+	t.Run("with audit", func(t *testing.T) {
+		setupData(db)
+
+		// Check mock params
+		doAction := func(entries []interface{}, elem ...interface{}) {
+			// Log entries for audit should be 12
+			its.Len(entries, 12)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(nil).Do(doAction).Times(1)
+
+		done := make(chan bool)
+		sidName := &lxDb.SubIdName{Name: "_id"}
+		res, err := base.DeleteMany(filter, lxDb.SetAuditAuth(au), done, sidName)
+
+		// Wait for close channel and check err
+		<-done
+		its.NoError(err)
+
+		// 12 male in db
+		its.Equal(int64(12), res.DeletedCount)
+		// 0 fails
+		its.Equal(int64(0), res.FailedCount)
+		its.Empty(res.FailedIDs)
+
+		// Check with Count
+		count, err := base.CountDocuments(chkFilter)
+		its.NoError(err)
+		its.Equal(int64(0), count)
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		setupData(db)
+
+		// Check mock params
+		doAction := func(entries []interface{}, elem ...interface{}) {
+			// Log entries for audit should be 12
+			its.Len(entries, 12)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(
+			errors.New("test-error")).Do(doAction).Times(1)
+
+		done := make(chan bool)
+		chanErr := make(chan error)
+		res, err := base.DeleteMany(filter, lxDb.SetAuditAuth(au), done, chanErr)
+
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+
+		its.NoError(err)
+
+		// 12 male in db
+		its.Equal(int64(12), res.DeletedCount)
+		// 0 fails
+		its.Equal(int64(0), res.FailedCount)
+		its.Empty(res.FailedIDs)
+
+		// Check with Count
+		count, err := base.CountDocuments(chkFilter)
+		its.NoError(err)
+		its.Equal(int64(0), count)
+	})
 }
 
 func TestMongoBaseRepo_GetCollection(t *testing.T) {

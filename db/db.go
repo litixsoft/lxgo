@@ -16,7 +16,7 @@ type IBaseRepo interface {
 	UpdateOne(filter interface{}, update interface{}, args ...interface{}) error
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateManyResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) error
-	DeleteMany(filter interface{}, args ...interface{}) (int64, error)
+	DeleteMany(filter interface{}, args ...interface{}) (*DeleteManyResult, error)
 	GetCollection() interface{}
 	GetDb() interface{}
 	GetRepoName() string
@@ -33,7 +33,7 @@ type AuditAuth struct {
 }
 
 // UpdateManySubIdName, id name for sub doc in filter
-type UpdateManySubIdName struct {
+type SubIdName struct {
 	Name string
 }
 
@@ -52,6 +52,12 @@ type UpdateManyResult struct {
 	FailedIDs     []interface{}
 	UpsertedCount int64
 	UpsertedID    interface{}
+}
+
+type DeleteManyResult struct {
+	DeletedCount int64
+	FailedCount  int64
+	FailedIDs    []interface{}
 }
 
 // SetAuditAuthUser, returns AuditAuth with user
