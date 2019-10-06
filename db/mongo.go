@@ -65,6 +65,7 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	var authUser interface{}
 	done := make(chan bool)
 	chanErr := make(chan error)
+	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -78,6 +79,8 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			done = val
 		case chan error:
 			chanErr = val
+		case *SubIdName:
+			subIdName = val.Name
 		}
 	}
 
@@ -96,8 +99,19 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 				done <- true
 			}()
 
+			// Convert for audit
+			bd, err := ToBsonDoc(doc)
+			if err != nil {
+				log.Printf("insert audit error:%v\n", err)
+				chanErr <- err
+				return
+			}
+
+			// Prepend id to doc
+			*bd = append(bson.D{{subIdName, res.InsertedID}}, *bd...)
+
 			// Write to logger
-			if err := repo.audit.LogEntry(Insert, authUser, doc); err != nil {
+			if err := repo.audit.LogEntry(Insert, authUser, bd); err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				chanErr <- err
 				return
