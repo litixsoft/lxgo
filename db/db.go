@@ -53,8 +53,6 @@ type UpdateManyResult struct {
 
 type DeleteManyResult struct {
 	DeletedCount int64
-	FailedCount  int64
-	FailedIDs    []interface{}
 }
 
 // SetAuditAuthUser, returns AuditAuth with user

@@ -407,6 +407,8 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	// Return UpdateManyResult
 	updateManyResult := new(UpdateManyResult)
 
+	//options.Find().SetProjection(bson.D{{"_id", 1}})
+
 	// Audit
 	if authUser != nil && repo.audit != nil {
 		// UpdateOne func for audit update many
@@ -429,7 +431,6 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 		// Update docs and log entries
 		for _, val := range allDocs {
 			subFilter := bson.D{{subIdName, val.(bson.D).Map()[subIdName]}}
-
 			// UpdateOne
 			var afterUpdate bson.D
 			if err := updOneFn(subFilter, &afterUpdate); err != nil {
@@ -570,48 +571,36 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 
 	// Audit
 	if authUser != nil && repo.audit != nil {
-		// DeleteOne func for audit update many
-		delOneFn := func(subFilter bson.D, beforeDelete *bson.D) error {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			return repo.collection.FindOneAndDelete(ctx, subFilter).Decode(beforeDelete)
-		}
-
-		// Find all with filter for audit
+		// Find all (only id field) with filter for audit
 		var allDocs []interface{}
-		if err := repo.Find(filter, &allDocs); err != nil {
+		if err := repo.Find(filter, &allDocs, options.Find().SetProjection(bson.D{{"_id", 1}})); err != nil {
 			return deleteManyResult, err
 		}
 
-		// Array for audits
-		var auditEntries bson.A
-
-		// Delete docs and log entries
-		for _, doc := range allDocs {
-			subFilter := bson.D{{subIdName, doc.(bson.D).Map()[subIdName]}}
-
-			// DeleteOne
-			var beforeDelete bson.D
-			if err := delOneFn(subFilter, &beforeDelete); err != nil {
-				// Error, add subId to failedCount and Ids
-				deleteManyResult.FailedCount++
-				deleteManyResult.FailedIDs = append(deleteManyResult.FailedIDs, subFilter.Map()[subIdName])
-			} else {
-				// Is deleted
-				deleteManyResult.DeletedCount++
-
-				// Audit only is deleted,
-				// data save only sub id by deleted
-				data := bson.D{{subIdName, subFilter.Map()[subIdName]}}
-				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
-			}
+		// DeleteMany
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		res, err := repo.collection.DeleteMany(ctx, filter, opts)
+		if err != nil {
+			return deleteManyResult, err
+		}
+		if res != nil {
+			deleteManyResult.DeletedCount = res.DeletedCount
 		}
 
 		// Start audit async
-		go func() {
+		go func(allDocs []interface{}) {
 			defer func() {
 				done <- true
 			}()
+
+			// create audit entries
+			var auditEntries bson.A
+			for _, doc := range allDocs {
+				// data save only sub id by deleted
+				data := bson.D{{subIdName, doc.(bson.D).Map()[subIdName]}}
+				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
+			}
 
 			// Write to logger
 			if err := repo.audit.LogEntries(auditEntries); err != nil {
@@ -619,7 +608,7 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 				chanErr <- err
 				return
 			}
-		}()
+		}(allDocs)
 
 		return deleteManyResult, nil
 	}

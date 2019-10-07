@@ -977,9 +977,6 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 
 		// 12 male in db
 		its.Equal(int64(12), res.DeletedCount)
-		// 0 fails
-		its.Equal(int64(0), res.FailedCount)
-		its.Empty(res.FailedIDs)
 
 		// Check with Count
 		count, err := base.CountDocuments(chkFilter)
@@ -1008,9 +1005,6 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 
 		// 12 male in db
 		its.Equal(int64(12), res.DeletedCount)
-		// 0 fails
-		its.Equal(int64(0), res.FailedCount)
-		its.Empty(res.FailedIDs)
 
 		// Check with Count
 		count, err := base.CountDocuments(chkFilter)
@@ -1042,10 +1036,6 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 
 		// 12 male in db
 		its.Equal(int64(12), res.DeletedCount)
-		// 0 fails
-		its.Equal(int64(0), res.FailedCount)
-		its.Empty(res.FailedIDs)
-
 		// Check with Count
 		count, err := base.CountDocuments(chkFilter)
 		its.NoError(err)
