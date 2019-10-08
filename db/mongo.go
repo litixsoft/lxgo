@@ -602,7 +602,7 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 			var auditEntries bson.A
 			for _, doc := range allDocs {
 				// data save only sub id by deleted
-				data := bson.D{{subIdName, doc.(bson.D).Map()[subIdName]}}
+				data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
 				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
 			}
 
