@@ -100,18 +100,20 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			}()
 
 			// Convert for audit
-			bd, err := ToBsonDoc(doc)
+			bm, err := ToBsonMap(doc)
 			if err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				chanErr <- err
 				return
 			}
 
-			// Prepend id to doc
-			*bd = append(bson.D{{subIdName, res.InsertedID}}, *bd...)
+			// Check id exists and not empty
+			if _, ok := bm[subIdName]; !ok {
+				bm[subIdName] = res.InsertedID
+			}
 
 			// Write to logger
-			if err := repo.audit.LogEntry(Insert, authUser, bd); err != nil {
+			if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
 				log.Printf("insert audit error:%v\n", err)
 				chanErr <- err
 				return
@@ -175,16 +177,18 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 				insertManyResult.InsertedIDs = append(insertManyResult.InsertedIDs, res.InsertedID)
 
 				// Convert for audit
-				bd, err := ToBsonDoc(doc)
+				bm, err := ToBsonMap(doc)
 				if err != nil {
 					return insertManyResult, err
 				}
 
-				// Prepend id to doc
-				*bd = append(bson.D{{subIdName, res.InsertedID}}, *bd...)
+				// Check id exists and not empty
+				if _, ok := bm[subIdName]; !ok {
+					bm[subIdName] = res.InsertedID
+				}
 
 				// Audit only is inserted,
-				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bd})
+				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bm})
 			}
 		}
 		// Start audit async

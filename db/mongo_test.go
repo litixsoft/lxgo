@@ -161,8 +161,8 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Insert, act)
 			its.Equal(au, usr)
-			its.Equal(testUser.Name, data.(*bson.D).Map()["name"])
-			its.Equal(testUser.Email, data.(*bson.D).Map()["email"])
+			its.Equal(testUser.Name, data.(bson.M)["name"])
+			its.Equal(testUser.Email, data.(bson.M)["email"])
 		}
 
 		// Configure mock
@@ -206,8 +206,8 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Insert, act)
 			its.Equal(au, usr)
-			its.Equal(testUser.Name, data.(*bson.D).Map()["name"])
-			its.Equal(testUser.Email, data.(*bson.D).Map()["email"])
+			its.Equal(testUser.Name, data.(bson.M)["name"])
+			its.Equal(testUser.Email, data.(bson.M)["email"])
 		}
 
 		// Configure mock
