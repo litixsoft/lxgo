@@ -551,25 +551,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 
 		filter := bson.D{{"_id", tu.Id}}
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
-		err := base.UpdateOne(filter, update)
-		its.NoError(err)
-
-		// Check with Find
-		var check TestUser
-		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
-		its.Equal(newName, check.Name)
-	})
-	t.Run("with timeout and options", func(t *testing.T) {
-		// Test the base repo
-		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-
-		// Update testUser
-		tu := testUsers[5]
-		newName := "Is Updated"
-
-		filter := bson.D{{"_id", tu.Id}}
-		update := bson.D{{"$set", bson.D{{"name", newName}}}}
-		err := base.UpdateOne(filter, update, time.Second*10, options.FindOneAndUpdate().SetMaxTime(time.Second*10))
+		err := base.UpdateOne(filter, update, time.Second*10, options.Update())
 		its.NoError(err)
 
 		// Check with Find
@@ -587,12 +569,11 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// Update testUser
-		tu := testUsers[5]
-		newName := "Is Updated"
-		tu.Name = newName
+		tu := testUsers[6]
+		tu.Name = "Is Updated"
 
 		// TestUser to map for tests
-		doc, err := lxDb.ToBsonDoc(&tu)
+		doc, err := lxDb.ToBsonMap(&tu)
 		its.NoError(err)
 
 		// AuthUser
@@ -602,14 +583,14 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Update, action)
 			its.Equal(au, user)
-			its.Equal(doc, data)
+			its.Equal(&doc, data)
 		}
 
 		// Configure mock
 		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(doAction).Times(1)
 
 		filter := bson.D{{"_id", tu.Id}}
-		update := bson.D{{"$set", bson.D{{"name", newName}}}}
+		update := bson.D{{"$set", bson.D{{"name", tu.Name}}}}
 		done := make(chan bool)
 		err = base.UpdateOne(filter, update, lxDb.SetAuditAuth(au), done)
 
@@ -620,7 +601,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		// Check with Find
 		var check TestUser
 		its.NoError(base.FindOne(bson.D{{"_id", tu.Id}}, &check))
-		its.Equal(newName, check.Name)
+		its.Equal(tu.Name, check.Name)
 	})
 	t.Run("with audit error", func(t *testing.T) {
 		// Test the base repo with mock
@@ -632,11 +613,11 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// Update testUser
-		tu := testUsers[5]
+		tu := testUsers[7]
 		tu.Name = "Is Updated"
 
 		// TestUser to map for tests
-		doc, err := lxDb.ToBsonDoc(&tu)
+		doc, err := lxDb.ToBsonMap(&tu)
 		its.NoError(err)
 
 		// AuthUser
@@ -646,7 +627,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		doAction := func(action string, user, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Update, action)
 			its.Equal(au, user)
-			its.Equal(doc, data)
+			its.Equal(&doc, data)
 		}
 
 		// Configure mock

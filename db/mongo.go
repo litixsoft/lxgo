@@ -327,8 +327,7 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 // UpdateOne updates a single document in the collection.
 func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, args ...interface{}) error {
 	timeout := DefaultTimeout
-	opts := &options.FindOneAndUpdateOptions{}
-	opts.SetReturnDocument(options.After)
+	opts := &options.UpdateOptions{}
 	var authUser interface{}
 	done := make(chan bool)
 	chanErr := make(chan error)
@@ -337,7 +336,7 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		switch val := args[i].(type) {
 		case time.Duration:
 			timeout = val
-		case *options.FindOneAndUpdateOptions:
+		case *options.UpdateOptions:
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
@@ -348,36 +347,58 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		}
 	}
 
+	if authUser != nil && repo.audit != nil {
+		// When audit then save doc before update for compare
+		var beforeUpdate bson.M
+		if err := repo.FindOne(filter, &beforeUpdate); err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		// Find and update doc save doc after updated
+		foaOpts := &options.FindOneAndUpdateOptions{}
+		foaOpts.SetReturnDocument(options.After)
+		var afterUpdate bson.M
+		if err := repo.collection.FindOneAndUpdate(ctx, filter, update, foaOpts).Decode(&afterUpdate); err != nil {
+			if err == mongo.ErrNoDocuments {
+				return NewNotFoundError(err.Error())
+			}
+			return err
+		}
+
+		// Audit only is updated
+		if !cmp.Equal(beforeUpdate, afterUpdate) {
+			// Start audit async
+			go func() {
+				defer func() {
+					done <- true
+				}()
+
+				// Write to logger
+				if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+					log.Printf("update audit error:%v\n", err)
+					chanErr <- err
+					return
+				}
+			}()
+		}
+		return nil
+	}
+
+	// Without audit can simple update
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Return UpdateResult
-	var afterUpdate bson.D
-	if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&afterUpdate); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
-		}
-		return err
+	// Simple update doc
+	res, err := repo.collection.UpdateOne(ctx, filter, update, opts)
+
+	if res != nil && res.MatchedCount == 0 {
+		return NewNotFoundError()
 	}
 
-	// Audit
-	if authUser != nil && repo.audit != nil {
-		// Start audit async
-		go func() {
-			defer func() {
-				done <- true
-			}()
-
-			// Write to logger
-			if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-				log.Printf("update audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
-		}()
-	}
-
-	return nil
+	return err
 }
 
 // UpdateMany updates multiple documents in the collection.
@@ -411,12 +432,10 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	// Return UpdateManyResult
 	updateManyResult := new(UpdateManyResult)
 
-	//options.Find().SetProjection(bson.D{{"_id", 1}})
-
 	// Audit
 	if authUser != nil && repo.audit != nil {
 		// UpdateOne func for audit update many
-		updOneFn := func(subFilter bson.D, afterUpdate *bson.D) error {
+		updOneFn := func(subFilter bson.D, afterUpdate *bson.M) error {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			return repo.collection.FindOneAndUpdate(ctx, subFilter, update,
@@ -424,7 +443,7 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 		}
 
 		// Find all with filter for audit
-		var allDocs []interface{}
+		var allDocs []bson.M
 		if err := repo.Find(filter, &allDocs); err != nil {
 			return nil, err
 		}
@@ -434,9 +453,9 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 
 		// Update docs and log entries
 		for _, val := range allDocs {
-			subFilter := bson.D{{subIdName, val.(bson.D).Map()[subIdName]}}
+			subFilter := bson.D{{subIdName, val[subIdName]}}
 			// UpdateOne
-			var afterUpdate bson.D
+			var afterUpdate bson.M
 			if err := updOneFn(subFilter, &afterUpdate); err != nil {
 				// Error, add subId to failedCount and Ids
 				updateManyResult.FailedCount++
