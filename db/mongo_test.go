@@ -103,6 +103,110 @@ func TestGetMongoDbClient(t *testing.T) {
 	its.IsType(&mongo.Client{}, client)
 }
 
+func TestMongoBaseRepo_CreateIndexes(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	lxHelper.HandlePanicErr(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Get indexes sub function
+	getIndexes := func() []bson.D {
+		// Check indexes
+		idx := collection.Indexes()
+		cur, err := idx.List(context.Background())
+		assert.NoError(t, err)
+
+		// Indexes
+		var indexes []bson.D
+
+		for cur.Next(context.Background()) {
+			index := bson.D{}
+			assert.NoError(t, cur.Decode(&index))
+			indexes = append(indexes, index)
+		}
+
+		return indexes
+	}
+
+	// Create test data
+	setupData(db)
+
+	// Update many with expireAt
+	update := bson.D{{"$set",
+		bson.D{{"expireAt", time.Now().Add(time.Hour * 24)}},
+	}}
+	_, err = collection.UpdateMany(context.Background(), bson.D{}, update)
+	lxHelper.HandlePanicErr(err)
+
+	// Check indexes before test setup
+	t.Run("before setup", func(t *testing.T) {
+		indexes := getIndexes()
+		its.Equal(1, len(indexes))
+
+		expected := primitive.D{
+			{"v", int32(2)},
+			{"key", primitive.D{{"_id", int32(1)}}},
+			{"name", "_id_"},
+			{"ns", "lxgo_test.users"},
+		}
+
+		its.Equal(expected, indexes[0])
+	})
+	// Check indexes after test setup
+	t.Run("after setup", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+		// Models for test
+		indexModels := []mongo.IndexModel{
+			{
+				Keys: primitive.D{{"email", int32(1)}},
+			},
+			{
+				Keys:    primitive.D{{"expireAt", int32(1)}},
+				Options: options.Index().SetExpireAfterSeconds(int32(1)),
+			},
+		}
+
+		// Check return from CreateMany
+		retIdx, err := base.CreateIndexes(indexModels)
+		its.NoError(err)
+
+		// Should be return only created indexes
+		its.Len(retIdx, 2)
+
+		// Check indexes from helper sub function
+		indexes := getIndexes()
+
+		// Should be return all indexes
+		its.Equal(3, len(indexes))
+
+		// indexes[1] should be email
+		expectedUserId := primitive.D{
+			{"v", int32(2)},
+			{"key", primitive.D{{"email", int32(1)}}},
+			{"name", "email_1"},
+			{"ns", "lxgo_test.users"},
+		}
+
+		its.Equal(expectedUserId, indexes[1])
+
+		// indexes[2] should be expireAt
+		expectedExpire := primitive.D{
+			{"v", int32(2)},
+			{"key", primitive.D{{"expireAt", int32(1)}}},
+			{"name", "expireAt_1"},
+			{"ns", "lxgo_test.users"},
+			{"expireAfterSeconds", int32(1)},
+		}
+
+		its.Equal(expectedExpire, indexes[2])
+	})
+}
+
 func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	its := assert.New(t)
 

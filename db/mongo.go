@@ -2,6 +2,7 @@ package lxDb
 
 import (
 	"context"
+	"errors"
 	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -56,6 +57,34 @@ func GetMongoDbClient(uri string) (client *mongo.Client, err error) {
 	}
 
 	return client, nil
+}
+
+// CreateIndexes, creates multiple indexes in the collection.
+// The names of the created indexes are returned.
+func (repo *mongoBaseRepo) CreateIndexes(indexes interface{}, args ...interface{}) ([]string, error) {
+	timeout := DefaultTimeout
+	opts := &options.CreateIndexesOptions{}
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.CreateIndexesOptions:
+			opts = val
+		}
+	}
+
+	// Convert indexModels
+	indexModels, ok := indexes.([]mongo.IndexModel)
+	if !ok {
+		return []string{}, errors.New("can't convert index models")
+	}
+
+	// create indexes
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return repo.collection.Indexes().CreateMany(ctx, indexModels, opts)
 }
 
 // InsertOne inserts a single document into the collection.

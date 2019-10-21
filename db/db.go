@@ -7,6 +7,7 @@ import (
 
 // IBaseRepo
 type IBaseRepo interface {
+	CreateIndexes(indexes interface{}, args ...interface{}) ([]string, error)
 	InsertOne(doc interface{}, args ...interface{}) (interface{}, error)
 	InsertMany(docs []interface{}, args ...interface{}) (*InsertManyResult, error)
 	CountDocuments(filter interface{}, args ...interface{}) (int64, error)
