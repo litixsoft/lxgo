@@ -1,4 +1,4 @@
-package lxLogMiddleware
+package logMiddleware
 
 import (
 	"errors"
