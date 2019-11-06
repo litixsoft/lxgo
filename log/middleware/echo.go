@@ -1,71 +1,72 @@
-package logMiddleware
+package lxLogMiddleware
 
 import (
 	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	lxLog "github.com/litixsoft/lxgo/log"
 	"github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
 
-type Out int
-
-const (
-	FormatText Out = iota + 1
-	FormatFluentd
-)
-
 type (
-	// EchoLogConfig defines the config for EchoLogConfig middleware.
-	EchoLogConfig struct {
+	// EchoLoggerConfig defines the config for EchoLoggerConfig middleware.
+	EchoLoggerConfig struct {
 		// Skipper defines a function to skip middleware.
 		middleware.Skipper
 
 		// Logger instance
 		Logger *logrus.Logger
 
-		// OutFormat format for output.
-		OutFormat Out
+		// LoggerOutFormat format for output.
+		LoggerOutFormat lxLog.OutFormat
 	}
 )
 
-// DefaultEchoLogConfig
+// DefaultEchoLoggerConfig
 var (
-	DefaultEchoLogConfig = EchoLogConfig{
-		Skipper:   middleware.DefaultSkipper,
-		OutFormat: FormatText,
+	DefaultEchoLoggerConfig = EchoLoggerConfig{
+		Skipper:         middleware.DefaultSkipper,
+		Logger:          lxLog.GetLogger(),
+		LoggerOutFormat: lxLog.GetOutFormat(),
 	}
 )
 
-// EchoLog returns an EchoLog middleware with default config.
+// EchoLogger returns an EchoLogger middleware with default config.
+// Default config based on logger init
 // Example for use:
-// e.Use(lxLogMiddleware.EchoLog(log))
-func EchoLog(logger *logrus.Logger) echo.MiddlewareFunc {
-	c := DefaultEchoLogConfig
-	c.Logger = logger
-	return EchoLogWithConfig(c)
+// e.Use(lxLogMiddleware.EchoLogger())
+func EchoLogger() echo.MiddlewareFunc {
+	if !lxLog.HasInit() {
+		panic(errors.New("logger is not initialized, an instance must be must be initialized"))
+	}
+	c := DefaultEchoLoggerConfig
+	return EchoLoggerWithConfig(c)
 }
 
-// EchoLogWithConfig returns an EchoLog middleware with custom config.
+// EchoLoggerWithConfig returns an EchoLogger middleware with custom config.
 // Example for use:
-// e.Use(lxLogMiddleware.EchoLogWithConfig(lxLogMiddleware.EchoLogConfig {
+// e.Use(lxLogMiddleware.EchoLoggerWithConfig(lxLogMiddleware.EchoLoggerConfig {
 //     Logger: log,
-//     OutFormat: lxLogMiddleware.FormatText,
+//     OutFormat: lxLog.FormatText,
 // }))
-func EchoLogWithConfig(config EchoLogConfig) echo.MiddlewareFunc {
+func EchoLoggerWithConfig(config EchoLoggerConfig) echo.MiddlewareFunc {
 	// Check logger, is required
 	if config.Logger == nil {
-		panic(errors.New("logger not available, an instance must be present in the configuration"))
+		if !lxLog.HasInit() {
+			panic(errors.New("logger is not initialized, an instance must be must be initialized"))
+		}
+		config.Logger = lxLog.GetLogger()
 	}
 
 	// Defaults
 	if config.Skipper == nil {
-		config.Skipper = DefaultEchoLogConfig.Skipper
+		config.Skipper = DefaultEchoLoggerConfig.Skipper
 	}
-	if config.OutFormat == 0 {
-		config.OutFormat = FormatText
+	if config.LoggerOutFormat == 0 {
+		config.LoggerOutFormat = lxLog.GetOutFormat()
 	}
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -94,8 +95,8 @@ func EchoLogWithConfig(config EchoLogConfig) echo.MiddlewareFunc {
 			fields := logrus.Fields{}
 
 			// Create output format
-			switch config.OutFormat {
-			case FormatText:
+			switch config.LoggerOutFormat {
+			case lxLog.FormatText:
 				// Create text message
 				msg = fmt.Sprintf("| %3d | %13v | %15s | %-7s %s",
 					res.Status,
@@ -104,7 +105,7 @@ func EchoLogWithConfig(config EchoLogConfig) echo.MiddlewareFunc {
 					req.Method,
 					req.RequestURI,
 				)
-			case FormatFluentd:
+			case lxLog.FormatJson, lxLog.FormatFluentd:
 				// Create fluentd message
 				msg = fmt.Sprintf("| %3d | %13v | %15s | %-7s %s",
 					res.Status,
