@@ -4,6 +4,7 @@ import (
 	joonix "github.com/joonix/log"
 	"github.com/sirupsen/logrus"
 	"io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -11,6 +12,18 @@ import (
 type OutFormat int
 
 const (
+	LogLevelPanic = "panic"
+	LogLevelFatal = "fatal"
+	LogLevelError = "error"
+	LogLevelWarn  = "warn"
+	LogLevelInfo  = "info"
+	LogLevelDebug = "debug"
+	LogLevelTrace = "trace"
+
+	LogFormatText    = "text"
+	LogFormatJson    = "json"
+	LogFormatFluentd = "fluentd"
+
 	FormatText OutFormat = iota + 1
 	FormatJson
 	FormatFluentd
@@ -41,40 +54,39 @@ func InitLogger(output io.Writer, logLevel, logFormat string) (log *logrus.Logge
 	log.SetOutput(output)
 
 	// Setup log level
-	switch logLevel {
-	case "panic":
+	switch strings.ToLower(logLevel) {
+	case LogLevelPanic:
 		log.SetLevel(logrus.PanicLevel)
-	case "fatal":
+	case LogLevelFatal:
 		log.SetLevel(logrus.FatalLevel)
-	case "error":
+	case LogLevelError:
 		log.SetLevel(logrus.ErrorLevel)
-	case "warn":
+	case LogLevelWarn:
 		log.SetLevel(logrus.WarnLevel)
-	case "info":
+	case LogLevelInfo:
 		log.SetLevel(logrus.InfoLevel)
-	case "debug":
+	case LogLevelDebug:
 		log.SetLevel(logrus.DebugLevel)
-	case "trace":
+	case LogLevelTrace:
 		log.SetLevel(logrus.TraceLevel)
 	default:
 		log.SetLevel(logrus.DebugLevel)
 	}
 
 	// Setup log format
-	switch logFormat {
-	case "text":
+	switch strings.ToLower(logFormat) {
+	case LogFormatText:
 		log.SetFormatter(&logrus.TextFormatter{
 			ForceColors:     true,
 			FullTimestamp:   true,
 			TimestampFormat: time.RFC3339,
 		})
 		outFormat = FormatText
-	case "json":
+	case LogFormatJson:
 		log.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339})
 		outFormat = FormatJson
-	case "fluentd":
+	case LogFormatFluentd:
 		log.SetFormatter(joonix.NewFormatter(joonix.StackdriverFormat, joonix.DisableTimestampFormat))
-		// Set format for middleware config
 		outFormat = FormatFluentd
 	default:
 		log.SetFormatter(&logrus.TextFormatter{
