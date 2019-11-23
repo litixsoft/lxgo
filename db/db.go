@@ -14,6 +14,8 @@ type IBaseRepo interface {
 	EstimatedDocumentCount(args ...interface{}) (int64, error)
 	Find(filter interface{}, result interface{}, args ...interface{}) error
 	FindOne(filter interface{}, result interface{}, args ...interface{}) error
+	FindOneAndDelete(filter interface{}, result interface{}, args ...interface{}) error
+	FindOneAndUpdate(filter, update, result interface{}, args ...interface{}) error
 	UpdateOne(filter interface{}, update interface{}, args ...interface{}) error
 	UpdateMany(filter interface{}, update interface{}, args ...interface{}) (*UpdateManyResult, error)
 	DeleteOne(filter interface{}, args ...interface{}) error

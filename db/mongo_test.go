@@ -635,6 +635,374 @@ func TestMongoDbBaseRepo_FindOne(t *testing.T) {
 	})
 }
 
+func TestMongoBaseRepo_FindOneAndDelete(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Sorted by name
+	testUsers := setupData(db)
+
+	t.Run("with options", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		// Find options in other format
+		// Sort by name as option
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+
+		// Empty filter for find first entry
+		filter := bson.D{}
+		var result TestUser
+
+		// Find first entry sort by name and delete
+		err = base.FindOneAndDelete(filter, &result, fo.ToMongoFindOneAndDeleteOptions(), time.Second*15)
+		its.NoError(err)
+		its.Equal(testUsers[0], result)
+	})
+	t.Run("with filter", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		filter := bson.D{{"email", testUsers[5].Email}}
+		var result TestUser
+		err = base.FindOneAndDelete(filter, &result)
+		its.NoError(err)
+		its.Equal(testUsers[5], result)
+	})
+	t.Run("not found error", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		filter := bson.D{{"email", "unknown@email"}}
+		var result TestUser
+		err = base.FindOneAndDelete(filter, &result)
+		its.Error(err)
+		its.IsType(&lxDb.NotFoundError{}, err)
+	})
+	t.Run("with audit", func(t *testing.T) {
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// Test user
+		tu := testUsers[6]
+
+		// AuditAuth
+		au := &bson.M{"name": "Timo Liebetrau"}
+
+		// Check mock params
+		doAction := func(action string, authUser, data interface{}, elem ...interface{}) {
+			its.Equal(lxDb.Delete, action)
+			its.Equal(au, authUser)
+			its.Equal(&tu, data)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(doAction).Times(1)
+
+		filter := bson.D{{"_id", tu.Id}}
+		done := make(chan bool)
+		var result TestUser
+		err = base.FindOneAndDelete(filter, &result, lxDb.SetAuditAuth(au), done)
+
+		// Wait for close channel and check err
+		<-done
+		its.NoError(err)
+
+		// Check result
+		its.Equal(tu, result)
+
+		// Check with find, user should be deleted
+		var check TestUser
+		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
+		its.Error(err)
+		its.IsType(&lxDb.NotFoundError{}, err)
+	})
+	t.Run("with audit error", func(t *testing.T) {
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// Test user
+		tu := testUsers[7]
+
+		// AuditAuth
+		au := &bson.M{"name": "Timo Liebetrau"}
+
+		// Check mock params
+		doAction := func(action string, authUser, data interface{}, elem ...interface{}) {
+			its.Equal(lxDb.Delete, action)
+			its.Equal(au, authUser)
+			its.Equal(&tu, data)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			errors.New("test-error")).Do(doAction).Times(1)
+
+		filter := bson.D{{"_id", tu.Id}}
+		done := make(chan bool)
+		chanErr := make(chan error)
+		var result TestUser
+		err = base.FindOneAndDelete(filter, &result, lxDb.SetAuditAuth(au), done, chanErr)
+
+		// Wait for close and error channel from audit thread
+		its.Error(<-chanErr)
+		its.True(<-done)
+
+		its.NoError(err)
+
+		// Check result
+		its.Equal(tu, result)
+
+		// Check with find, user should be deleted
+		var check TestUser
+		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
+		its.Error(err)
+		its.IsType(&lxDb.NotFoundError{}, err)
+	})
+}
+
+func TestMongoBaseRepo_FindOneAndUpdate(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	t.Run("with options after", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		// testUsers Sorted by name
+		testUsers := setupData(db)
+
+		// Find options in other format
+		// Sort by name as option
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+
+		// Empty filter for find first entry
+		filter := bson.D{}
+		update := bson.D{{"$set", bson.D{{"name", "updated-name"}}}}
+		var result TestUser
+
+		// Set options and return document
+		opts := fo.ToMongoFindOneAndUpdateOptions()
+		opts.SetReturnDocument(options.After)
+
+		// Find first entry sort by name and update
+		err = base.FindOneAndUpdate(filter, update, &result, opts, time.Second*10)
+		its.NoError(err)
+
+		expected := TestUser{
+			Id:       testUsers[0].Id,
+			Name:     "updated-name",
+			Gender:   testUsers[0].Gender,
+			Email:    testUsers[0].Email,
+			IsActive: testUsers[0].IsActive,
+		}
+
+		its.Equal(expected, result)
+	})
+	t.Run("with options before", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		// testUsers Sorted by name
+		testUsers := setupData(db)
+
+		// Find options in other format
+		// Sort by name as option
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+
+		// Empty filter for find first entry
+		filter := bson.D{}
+		update := bson.D{{"$set", bson.D{{"name", "updated-name"}}}}
+		var result TestUser
+
+		// Set options and return document
+		opts := fo.ToMongoFindOneAndUpdateOptions()
+		opts.SetReturnDocument(options.Before)
+
+		// Find first entry sort by name and update
+		err = base.FindOneAndUpdate(filter, update, &result, opts)
+		its.NoError(err)
+		its.Equal(testUsers[0], result)
+	})
+	t.Run("with not found error", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		// testUsers Sorted by name
+		setupData(db)
+
+		// Find options in other format
+		// Sort by name as option
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+
+		// Empty filter for find first entry
+		filter := bson.D{{"_id", primitive.NewObjectID()}}
+		update := bson.D{{"$set", bson.D{{"name", "updated-name"}}}}
+		var result TestUser
+
+		// Set options and return document
+		opts := fo.ToMongoFindOneAndUpdateOptions()
+		opts.SetReturnDocument(options.Before)
+
+		// Find first entry sort by name and update
+		err = base.FindOneAndUpdate(filter, update, &result, opts)
+		its.Error(err)
+		its.IsType(&lxDb.NotFoundError{}, err)
+	})
+	t.Run("audit with SetReturnDocument", func(t *testing.T) {
+		// testUsers Sorted by name
+		testUsers := setupData(db)
+
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// AuthUser
+		au := &bson.M{"name": "Timo Liebetrau"}
+
+		// New name for update
+		updatedName := "updatedName"
+
+		// Check params with doAction
+		doAction := func(action string, user, data interface{}, elem ...interface{}) {
+			its.Equal(lxDb.Update, action)
+			its.Equal(au, user)
+
+			// Map for check
+			tu := testUsers[0]
+			tu.Name = updatedName
+			chkUser, err := lxDb.ToBsonMap(tu)
+
+			// Check
+			its.NoError(err)
+			its.Equal(&chkUser, data)
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(doAction).Times(1)
+
+		// Find options in other format
+		// Sort by name as option
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+
+		// Set options and return document
+		opts := fo.ToMongoFindOneAndUpdateOptions()
+		// When SetReturnDocument not set, use options.After by default
+		//opts.SetReturnDocument(options.After)
+
+		// Find first entry sort by name and update
+		// Empty filter for find first entry
+		filter := bson.D{}
+		update := bson.D{{"$set", bson.D{{"name", updatedName}}}}
+		done := make(chan bool)
+		var result TestUser
+		err = base.FindOneAndUpdate(filter, update, &result, opts, lxDb.SetAuditAuth(au), done)
+
+		// Wait for close channel and check err
+		<-done
+		its.NoError(err)
+
+		// Test user for check
+		tu := testUsers[0]
+		tu.Name = updatedName
+
+		its.Equal(tu, result)
+	})
+	//t.Run("audit with options.After and not found error", func(t *testing.T) {
+	//	// testUsers Sorted by name
+	//	setupData(db)
+	//
+	//	// Test the base repo with mock
+	//	mockCtrl := gomock.NewController(t)
+	//	defer mockCtrl.Finish()
+	//	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+	//
+	//	// Test the base repo
+	//	base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+	//
+	//	// AuthUser
+	//	au := &bson.M{"name": "Timo Liebetrau"}
+	//
+	//	// New name for update
+	//	updatedName := "updatedName"
+	//
+	//	// Check params with doAction
+	//	//doAction := func(action string, user, data interface{}, elem ...interface{}) {
+	//	//	its.Equal(lxDb.Update, action)
+	//	//	its.Equal(au, user)
+	//	//
+	//	//	// Map for check
+	//	//	tu := testUsers[0]
+	//	//	tu.Name = updatedName
+	//	//	chkUser, err := lxDb.ToBsonMap(tu)
+	//	//
+	//	//	// Check
+	//	//	its.NoError(err)
+	//	//	its.Equal(&chkUser, data)
+	//	//}
+	//
+	//	// Configure mock
+	//	//mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+	//	//	Return(errors.New("test-error")).Do(doAction).Times(1)
+	//
+	//	// Find options in other format
+	//	// Sort by name as option
+	//	fo := lxHelper.FindOptions{
+	//		Sort: map[string]int{"name": 1},
+	//	}
+	//
+	//	// Set options and return document
+	//	opts := fo.ToMongoFindOneAndUpdateOptions()
+	//	opts.SetReturnDocument(options.After)
+	//
+	//	// Find nothing by filter
+	//	filter := bson.D{{"_id", primitive.NewObjectID()}}
+	//	update := bson.D{{"$set", bson.D{{"name", updatedName}}}}
+	//	//done := make(chan bool)
+	//	//chanErr := make(chan error)
+	//	var result TestUser
+	//	err = base.FindOneAndUpdate(filter, update, &result, opts, lxDb.SetAuditAuth(au))
+	//
+	//	// Check update return
+	//	its.Error(err)
+	//	its.IsType(&lxDb.NotFoundError{}, err)
+	//})
+}
+
 func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 	its := assert.New(t)
 

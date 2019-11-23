@@ -26,6 +26,20 @@ func (fo *FindOptions) ToMongoFindOneOptions() *options.FindOneOptions {
 	return opts
 }
 
+// ToMongoFindOneAndDeleteOptions
+func (fo *FindOptions) ToMongoFindOneAndDeleteOptions() *options.FindOneAndDeleteOptions {
+	opts := options.FindOneAndDelete()
+	opts.SetSort(fo.Sort)
+	return opts
+}
+
+// ToMongoFindOneAndDeleteOptions
+func (fo *FindOptions) ToMongoFindOneAndUpdateOptions() *options.FindOneAndUpdateOptions {
+	opts := options.FindOneAndUpdate()
+	opts.SetSort(fo.Sort)
+	return opts
+}
+
 // ToMongoCountOptions
 func (fo *FindOptions) ToMongoCountOptions() *options.CountOptions {
 	opts := options.Count()
