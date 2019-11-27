@@ -444,7 +444,8 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 		case options.After:
 			// Save doc before update for compare
 			var beforeUpdate bson.M
-			if err := repo.FindOne(filter, &beforeUpdate); err != nil {
+			findOneOpts := options.FindOne()
+			if err := repo.FindOne(filter, &beforeUpdate, findOneOpts); err != nil {
 				return err
 			}
 
@@ -488,18 +489,19 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 				return err
 			}
 
-			// Save doc after update for compare
-			var afterUpdate bson.M
-			if err := repo.FindOne(filter, &afterUpdate); err != nil {
-				return err
-			}
-
 			// Audit only is updated
 			// Create before update map for compare
 			beforeUpdate, err := ToBsonMap(result)
 			if err != nil {
 				return err
 			}
+
+			// Save doc after update for compare
+			var afterUpdate bson.M
+			if err := repo.FindOne(bson.D{{"_id", beforeUpdate["_id"]}}, &afterUpdate); err != nil {
+				return err
+			}
+
 			// Compare and audit
 			if !cmp.Equal(beforeUpdate, afterUpdate) {
 				// Start audit async
