@@ -518,49 +518,7 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			}
 		}
 
-		// Save doc before update for compare
-		//var beforeUpdate bson.M
-		//if err := repo.FindOne(filter, &beforeUpdate); err != nil {
-		//	return err
-		//}
-		//
-		//ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		//defer cancel()
-		//
-		//// Find and update doc save doc after updated for audit
-		//foaOpts := &options.FindOneAndUpdateOptions{}
-		//foaOpts = opts
-		//// Overwrite
-		//foaOpts.SetReturnDocument(options.After)
-		//var afterUpdate bson.M
-		//if err := repo.collection.FindOneAndUpdate(ctx, filter, update, foaOpts).Decode(&afterUpdate); err != nil {
-		//	if err == mongo.ErrNoDocuments {
-		//		return NewNotFoundError(err.Error())
-		//	}
-		//	return err
-		//}
-
-		// Audit only is updated
-		//if !cmp.Equal(beforeUpdate, afterUpdate) {
-		//	// Start audit async
-		//	go func() {
-		//		defer func() {
-		//			done <- true
-		//		}()
-		//
-		//		// Write to logger
-		//		if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-		//			log.Printf("update audit error:%v\n", err)
-		//			chanErr <- err
-		//			return
-		//		}
-		//	}()
-		//}
-
-		// Set result
-
 		return nil
-
 	}
 
 	// Without audit simple FindOneAndUpdate with given opts
