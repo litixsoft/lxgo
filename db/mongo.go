@@ -407,6 +407,141 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	return nil
 }
 
+// FindOneAndReplace finds a single document and replaces it, returning either
+// the original or the replaced document.
+func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interface{}, args ...interface{}) error {
+	timeout := DefaultTimeout
+	opts := options.FindOneAndReplace()
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.FindOneAndReplaceOptions:
+			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		}
+	}
+
+	// Audit only with options.After
+	if authUser != nil && repo.audit != nil {
+		// Check and set options
+		if opts.ReturnDocument == nil || *opts.ReturnDocument != options.After && *opts.ReturnDocument != options.Before {
+			// Set default to after
+			opts.SetReturnDocument(options.After)
+		}
+
+		// Check option and replace with audit
+		switch *opts.ReturnDocument {
+		case options.After:
+			// Save doc before replace for compare
+			var beforeReplace bson.M
+			// Set FindOne options
+			findOneOpts := options.FindOne()
+			// When FindOneAndUpdateOptions.Sort is set then set FindOneOptions
+			if opts.Sort != nil {
+				findOneOpts.SetSort(opts.Sort)
+			}
+			if err := repo.FindOne(filter, &beforeReplace, findOneOpts); err != nil {
+				return err
+			}
+
+			// FindOne and update
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+				return err
+			}
+
+			// Audit only is replaced
+			// Create after replace map for compare
+			afterReplace, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+			// Compare and audit
+			if !cmp.Equal(beforeReplace, afterReplace) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		case options.Before:
+			// FindOne and replace
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+				if err == mongo.ErrNoDocuments {
+					return NewNotFoundError(err.Error())
+				}
+				return err
+			}
+
+			// Audit only is replaced
+			// Create before replace map for compare
+			beforeReplace, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+
+			// Save doc after replace for compare
+			var afterReplace bson.M
+			if err := repo.FindOne(bson.D{{"_id", beforeReplace["_id"]}}, &afterReplace); err != nil {
+				return err
+			}
+
+			// Compare and audit
+			if !cmp.Equal(beforeReplace, afterReplace) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		}
+
+		return nil
+	}
+
+	// Without audit simple FindOneAndUpdate with given opts
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return NewNotFoundError(err.Error())
+		}
+		return err
+	}
+
+	return nil
+}
+
 // FindOneAndUpdate finds a single document and updates it, returning either
 // the the updated.
 func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, args ...interface{}) error {
@@ -444,7 +579,12 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 		case options.After:
 			// Save doc before update for compare
 			var beforeUpdate bson.M
+			// Set FindOne options
 			findOneOpts := options.FindOne()
+			// When FindOneAndUpdateOptions.Sort is set then set FindOneOptions
+			if opts.Sort != nil {
+				findOneOpts.SetSort(opts.Sort)
+			}
 			if err := repo.FindOne(filter, &beforeUpdate, findOneOpts); err != nil {
 				return err
 			}

@@ -33,6 +33,13 @@ func (fo *FindOptions) ToMongoFindOneAndDeleteOptions() *options.FindOneAndDelet
 	return opts
 }
 
+// ToMongoFindOneAndReplaceOptions
+func (fo *FindOptions) ToMongoFindOneAndReplaceOptions() *options.FindOneAndReplaceOptions {
+	opts := options.FindOneAndReplace()
+	opts.SetSort(fo.Sort)
+	return opts
+}
+
 // ToMongoFindOneAndDeleteOptions
 func (fo *FindOptions) ToMongoFindOneAndUpdateOptions() *options.FindOneAndUpdateOptions {
 	opts := options.FindOneAndUpdate()
