@@ -188,6 +188,44 @@ func (mr *MockIBaseRepoMockRecorder) FindOneAndDelete(arg0, arg1 interface{}, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOneAndDelete", reflect.TypeOf((*MockIBaseRepo)(nil).FindOneAndDelete), varargs...)
 }
 
+// FindOneAndReplace mocks base method
+func (m *MockIBaseRepo) FindOneAndReplace(arg0, arg1, arg2 interface{}, arg3 ...interface{}) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FindOneAndReplace", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FindOneAndReplace indicates an expected call of FindOneAndReplace
+func (mr *MockIBaseRepoMockRecorder) FindOneAndReplace(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOneAndReplace", reflect.TypeOf((*MockIBaseRepo)(nil).FindOneAndReplace), varargs...)
+}
+
+// FindOneAndUpdate mocks base method
+func (m *MockIBaseRepo) FindOneAndUpdate(arg0, arg1, arg2 interface{}, arg3 ...interface{}) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FindOneAndUpdate", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FindOneAndUpdate indicates an expected call of FindOneAndUpdate
+func (mr *MockIBaseRepoMockRecorder) FindOneAndUpdate(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOneAndUpdate", reflect.TypeOf((*MockIBaseRepo)(nil).FindOneAndUpdate), varargs...)
+}
+
 // GetCollection mocks base method
 func (m *MockIBaseRepo) GetCollection() interface{} {
 	m.ctrl.T.Helper()
