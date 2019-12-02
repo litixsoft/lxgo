@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 // IPdf, interface for pdf service
@@ -149,9 +148,11 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 }
 
 // addFormFile, append a file to multipart writer
-func (p *pdf) addFormFile(field, filename string, multipartWriter *multipart.Writer) error {
+func (p *pdf) addFormFile(field, filePath string, multipartWriter *multipart.Writer) error {
+	_, filename := path.Split(filePath)
+
 	// Open file
-	file, err := os.Open(filepath.Join(p.templateDir, filename))
+	file, err := os.Open(path.Join(p.templateDir, filePath))
 	if err != nil {
 		return fmt.Errorf("open file: %v", err)
 	}
