@@ -220,6 +220,12 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bm})
 			}
 		}
+
+		// Check audit entries
+		if auditEntries == nil || len(auditEntries) == 0 {
+			return insertManyResult, nil
+		}
+
 		// Start audit async
 		go func() {
 			defer func() {
@@ -824,6 +830,11 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			}
 		}
 
+		// Check audit entries
+		if auditEntries == nil || len(auditEntries) == 0 {
+			return updateManyResult, nil
+		}
+
 		// Start audit async
 		go func() {
 			defer func() {
@@ -965,26 +976,28 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 		}
 
 		// Start audit async
-		go func(allDocs []interface{}) {
-			defer func() {
-				done <- true
-			}()
+		if allDocs != nil && len(allDocs) > 0 {
+			go func(allDocs []interface{}) {
+				defer func() {
+					done <- true
+				}()
 
-			// create audit entries
-			var auditEntries bson.A
-			for _, doc := range allDocs {
-				// data save only sub id by deleted
-				data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
-				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
-			}
+				// create audit entries
+				var auditEntries bson.A
+				for _, doc := range allDocs {
+					// data save only sub id by deleted
+					data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
+					auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
+				}
 
-			// Write to logger
-			if err := repo.audit.LogEntries(auditEntries); err != nil {
-				log.Printf("delete audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
-		}(allDocs)
+				// Write to logger
+				if err := repo.audit.LogEntries(auditEntries); err != nil {
+					log.Printf("delete audit error:%v\n", err)
+					chanErr <- err
+					return
+				}
+			}(allDocs)
+		}
 
 		return deleteManyResult, nil
 	}

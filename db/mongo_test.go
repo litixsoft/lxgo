@@ -487,6 +487,19 @@ func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
 			its.Equal(id, res.Id)
 		}
 	})
+	t.Run("with audit empty inserts", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		testUsers := make([]interface{}, 0)
+
+		// Test the base repo
+		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au))
+
+		its.NoError(err)
+		its.Equal(0, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+	})
 }
 
 func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
@@ -1886,27 +1899,21 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 	its.NoError(err)
 
 	db := client.Database(TestDbName)
-
-	// Mock for base repo
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
-
-	// Test the base repo with mock
-	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection), mockIBaseRepoAudit)
-
-	// All females to active, should be 13
-	filter := bson.D{{"gender", "Female"}}
-	update := bson.D{{"$set",
-		bson.D{{"is_active", true}},
-	}}
-	chkFilter := bson.D{{"gender", "Female"}, {"is_active", true}}
-
-	// AuditAuth user
-	au := &bson.M{"name": "Timo Liebetrau"}
+	collection := db.Collection(TestCollection)
 
 	t.Run("without audit", func(t *testing.T) {
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection)
+
+		// Setup test data
 		setupData(db)
+
+		// All females to active, should be 13
+		filter := bson.D{{"gender", "Female"}}
+		update := bson.D{{"$set",
+			bson.D{{"is_active", true}},
+		}}
+		chkFilter := bson.D{{"gender", "Female"}, {"is_active", true}}
 
 		res, err := base.UpdateMany(filter, update, time.Second*10, options.Update())
 		its.NoError(err)
@@ -1927,7 +1934,19 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		its.Equal(int64(13), count)
 	})
 	t.Run("with audit", func(t *testing.T) {
+		// testUsers test data Sorted by name
 		setupData(db)
+
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// AuthUser
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(entries []interface{}, elem ...interface{}) {
@@ -1938,6 +1957,14 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		// Configure mock
 		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(nil).Do(doAction).Times(1)
 
+		// All females to active,
+		// All females should be 13
+		// All inactive females should be 8
+		filter := bson.D{{"gender", "Female"}}
+		chkFilter := bson.D{{"gender", "Female"}, {"is_active", true}}
+		update := bson.D{{"$set",
+			bson.D{{"is_active", true}},
+		}}
 		done := make(chan bool)
 		sidName := &lxDb.SubIdName{Name: "_id"}
 		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au), done, sidName)
@@ -1962,7 +1989,19 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		its.Equal(int64(13), count)
 	})
 	t.Run("with audit error", func(t *testing.T) {
+		// testUsers test data Sorted by name
 		setupData(db)
+
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// AuthUser
+		au := &bson.M{"name": "Timo Liebetrau"}
 
 		// Check mock params
 		doAction := func(entries []interface{}, elem ...interface{}) {
@@ -1974,6 +2013,14 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(
 			errors.New("test-error")).Do(doAction).Times(1)
 
+		// All females to active,
+		// All females should be 13
+		// All inactive females should be 8
+		filter := bson.D{{"gender", "Female"}}
+		chkFilter := bson.D{{"gender", "Female"}, {"is_active", true}}
+		update := bson.D{{"$set",
+			bson.D{{"is_active", true}},
+		}}
 		done := make(chan bool)
 		chanErr := make(chan error)
 		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au), done, chanErr)
@@ -1997,6 +2044,40 @@ func TestMongoDbBaseRepo_UpdateMany(t *testing.T) {
 		count, err := base.CountDocuments(chkFilter)
 		its.NoError(err)
 		its.Equal(int64(13), count)
+	})
+	t.Run("with audit and empty updates", func(t *testing.T) {
+		// testUsers test data Sorted by name
+		setupData(db)
+
+		// Test the base repo with mock
+		mockCtrl := gomock.NewController(t)
+		defer mockCtrl.Finish()
+		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+		// Test the base repo
+		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+		// AuthUser
+		au := &bson.M{"name": "Timo Liebetrau"}
+
+		// Wrong filter for 0 matches
+		filter := bson.D{{"gender", "Animal"}}
+		update := bson.D{{"$set",
+			bson.D{{"is_active", true}},
+		}}
+
+		res, err := base.UpdateMany(filter, update, lxDb.SetAuditAuth(au))
+		its.NoError(err)
+
+		// 0 animals in db
+		its.Equal(int64(0), res.MatchedCount)
+		// 0 modified
+		its.Equal(int64(0), res.ModifiedCount)
+		// 0 fails and upserted
+		its.Equal(int64(0), res.FailedCount)
+		its.Empty(res.FailedIDs)
+		its.Equal(int64(0), res.UpsertedCount)
+		its.Nil(res.UpsertedID)
 	})
 }
 
@@ -2239,6 +2320,14 @@ func TestMongoDbBaseRepo_DeleteMany(t *testing.T) {
 		count, err := base.CountDocuments(chkFilter)
 		its.NoError(err)
 		its.Equal(int64(0), count)
+	})
+	t.Run("with audit and empty filter", func(t *testing.T) {
+		setupData(db)
+
+		res, err := base.DeleteMany(bson.D{{"gender", "Animals"}}, lxDb.SetAuditAuth(au))
+		its.NoError(err)
+		// 0 animals in db
+		its.Equal(int64(0), res.DeletedCount)
 	})
 }
 
