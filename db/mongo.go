@@ -220,6 +220,12 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bm})
 			}
 		}
+
+		// Check audit entries
+		if auditEntries == nil || len(auditEntries) == 0 {
+			return insertManyResult, nil
+		}
+
 		// Start audit async
 		go func() {
 			defer func() {
@@ -347,6 +353,330 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 			return NewNotFoundError(err.Error())
 		}
 
+		return err
+	}
+
+	return nil
+}
+
+// FindOneAndDelete find a single document and deletes it, returning the
+// original in result.
+func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface{}, args ...interface{}) error {
+	timeout := DefaultTimeout
+	opts := &options.FindOneAndDeleteOptions{}
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.FindOneAndDeleteOptions:
+			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := repo.collection.FindOneAndDelete(ctx, filter, opts).Decode(result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return NewNotFoundError(err.Error())
+		}
+		return err
+	}
+
+	// Audit
+	if authUser != nil && repo.audit != nil {
+		// Start audit async
+		go func() {
+			defer func() {
+				done <- true
+			}()
+
+			// Write to logger
+			if err := repo.audit.LogEntry(Delete, authUser, result); err != nil {
+				log.Printf("audit delete error: %v\n", err)
+				chanErr <- err
+				return
+			}
+		}()
+	}
+
+	return nil
+}
+
+// FindOneAndReplace finds a single document and replaces it, returning either
+// the original or the replaced document.
+func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interface{}, args ...interface{}) error {
+	timeout := DefaultTimeout
+	opts := options.FindOneAndReplace()
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.FindOneAndReplaceOptions:
+			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		}
+	}
+
+	// Audit only with options.After
+	if authUser != nil && repo.audit != nil {
+		// Check and set options
+		if opts.ReturnDocument == nil || *opts.ReturnDocument != options.After && *opts.ReturnDocument != options.Before {
+			// Set default to after
+			opts.SetReturnDocument(options.After)
+		}
+
+		// Check option and replace with audit
+		switch *opts.ReturnDocument {
+		case options.After:
+			// Save doc before replace for compare
+			var beforeReplace bson.M
+			// Set FindOne options
+			findOneOpts := options.FindOne()
+			// When FindOneAndUpdateOptions.Sort is set then set FindOneOptions
+			if opts.Sort != nil {
+				findOneOpts.SetSort(opts.Sort)
+			}
+			if err := repo.FindOne(filter, &beforeReplace, findOneOpts); err != nil {
+				return err
+			}
+
+			// FindOne and update
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+				return err
+			}
+
+			// Audit only is replaced
+			// Create after replace map for compare
+			afterReplace, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+			// Compare and audit
+			if !cmp.Equal(beforeReplace, afterReplace) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		case options.Before:
+			// FindOne and replace
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+				if err == mongo.ErrNoDocuments {
+					return NewNotFoundError(err.Error())
+				}
+				return err
+			}
+
+			// Audit only is replaced
+			// Create before replace map for compare
+			beforeReplace, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+
+			// Save doc after replace for compare
+			var afterReplace bson.M
+			if err := repo.FindOne(bson.D{{"_id", beforeReplace["_id"]}}, &afterReplace); err != nil {
+				return err
+			}
+
+			// Compare and audit
+			if !cmp.Equal(beforeReplace, afterReplace) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		}
+
+		return nil
+	}
+
+	// Without audit simple FindOneAndUpdate with given opts
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return NewNotFoundError(err.Error())
+		}
+		return err
+	}
+
+	return nil
+}
+
+// FindOneAndUpdate finds a single document and updates it, returning either
+// the the updated.
+func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, args ...interface{}) error {
+	timeout := DefaultTimeout
+	opts := &options.FindOneAndUpdateOptions{}
+	var authUser interface{}
+	done := make(chan bool)
+	chanErr := make(chan error)
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.FindOneAndUpdateOptions:
+			opts = val
+		case *AuditAuth:
+			authUser = val.User
+		case chan bool:
+			done = val
+		case chan error:
+			chanErr = val
+		}
+	}
+
+	// Audit only with options.After
+	if authUser != nil && repo.audit != nil {
+		// Check and set options
+		if opts.ReturnDocument == nil || *opts.ReturnDocument != options.After && *opts.ReturnDocument != options.Before {
+			// Set default to after
+			opts.SetReturnDocument(options.After)
+		}
+
+		// Check option and update with audit
+		switch *opts.ReturnDocument {
+		case options.After:
+			// Save doc before update for compare
+			var beforeUpdate bson.M
+			// Set FindOne options
+			findOneOpts := options.FindOne()
+			// When FindOneAndUpdateOptions.Sort is set then set FindOneOptions
+			if opts.Sort != nil {
+				findOneOpts.SetSort(opts.Sort)
+			}
+			if err := repo.FindOne(filter, &beforeUpdate, findOneOpts); err != nil {
+				return err
+			}
+
+			// FindOne and update
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(result); err != nil {
+				return err
+			}
+
+			// Audit only is updated
+			// Create after update map for compare
+			afterUpdate, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+			// Compare and audit
+			if !cmp.Equal(beforeUpdate, afterUpdate) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		case options.Before:
+			// FindOne and update
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(result); err != nil {
+				if err == mongo.ErrNoDocuments {
+					return NewNotFoundError(err.Error())
+				}
+				return err
+			}
+
+			// Audit only is updated
+			// Create before update map for compare
+			beforeUpdate, err := ToBsonMap(result)
+			if err != nil {
+				return err
+			}
+
+			// Save doc after update for compare
+			var afterUpdate bson.M
+			if err := repo.FindOne(bson.D{{"_id", beforeUpdate["_id"]}}, &afterUpdate); err != nil {
+				return err
+			}
+
+			// Compare and audit
+			if !cmp.Equal(beforeUpdate, afterUpdate) {
+				// Start audit async
+				go func() {
+					defer func() {
+						done <- true
+					}()
+
+					// Write to logger
+					if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+						log.Printf("update audit error:%v\n", err)
+						chanErr <- err
+						return
+					}
+				}()
+			}
+		}
+
+		return nil
+	}
+
+	// Without audit simple FindOneAndUpdate with given opts
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return NewNotFoundError(err.Error())
+		}
 		return err
 	}
 
@@ -500,6 +830,11 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			}
 		}
 
+		// Check audit entries
+		if auditEntries == nil || len(auditEntries) == 0 {
+			return updateManyResult, nil
+		}
+
 		// Start audit async
 		go func() {
 			defer func() {
@@ -641,26 +976,28 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 		}
 
 		// Start audit async
-		go func(allDocs []interface{}) {
-			defer func() {
-				done <- true
-			}()
+		if allDocs != nil && len(allDocs) > 0 {
+			go func(allDocs []interface{}) {
+				defer func() {
+					done <- true
+				}()
 
-			// create audit entries
-			var auditEntries bson.A
-			for _, doc := range allDocs {
-				// data save only sub id by deleted
-				data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
-				auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
-			}
+				// create audit entries
+				var auditEntries bson.A
+				for _, doc := range allDocs {
+					// data save only sub id by deleted
+					data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
+					auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
+				}
 
-			// Write to logger
-			if err := repo.audit.LogEntries(auditEntries); err != nil {
-				log.Printf("delete audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
-		}(allDocs)
+				// Write to logger
+				if err := repo.audit.LogEntries(auditEntries); err != nil {
+					log.Printf("delete audit error:%v\n", err)
+					chanErr <- err
+					return
+				}
+			}(allDocs)
+		}
 
 		return deleteManyResult, nil
 	}
