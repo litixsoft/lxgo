@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 // IPdf, interface for pdf service
@@ -109,7 +109,7 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	if err != nil {
 		return nil, fmt.Errorf("invalid serviceUrl")
 	}
-	u.Path = path.Join(u.Path, "create")
+	u.Path = filepath.Join(u.Path, "create")
 
 	// Create request
 	req, err := http.NewRequest("POST", u.String(), &requestBody)
@@ -149,10 +149,10 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 
 // addFormFile, append a file to multipart writer
 func (p *pdf) addFormFile(field, filePath string, multipartWriter *multipart.Writer) error {
-	_, filename := path.Split(filePath)
+	_, filename := filepath.Split(filePath)
 
 	// Open file
-	file, err := os.Open(path.Join(p.templateDir, filePath))
+	file, err := os.Open(filepath.Join(p.templateDir, filePath))
 	if err != nil {
 		return fmt.Errorf("open file: %v", err)
 	}
