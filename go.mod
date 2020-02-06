@@ -7,7 +7,7 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/joonix/log v0.0.0-20190524090622-13fe31bbdd7a
 	github.com/klauspost/compress v1.9.8 // indirect
-	github.com/labstack/echo/v4 v4.1.14
+	github.com/labstack/echo/v4 v4.1.12
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
