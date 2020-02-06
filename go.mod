@@ -7,11 +7,13 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/joonix/log v0.0.0-20190524090622-13fe31bbdd7a
 	github.com/klauspost/compress v1.9.8 // indirect
-	github.com/labstack/echo/v4 v4.1.12
+	github.com/labstack/echo/v4 v4.1.11
+	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
+	github.com/valyala/fasttemplate v1.1.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect

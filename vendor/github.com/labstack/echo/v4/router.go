@@ -1,9 +1,6 @@
 package echo
 
-import (
-	"net/http"
-	"strings"
-)
+import "net/http"
 
 type (
 	// Router is the registry of all registered routes for an `Echo` instance for
@@ -23,8 +20,8 @@ type (
 		pnames        []string
 		methodHandler *methodHandler
 	}
-	kind          uint8
-	children      []*node
+	kind uint8
+	children []*node
 	methodHandler struct {
 		connect  HandlerFunc
 		delete   HandlerFunc
@@ -135,11 +132,6 @@ func (r *Router) insert(method, path string, h HandlerFunc, t kind, ppath string
 		} else if l < pl {
 			// Split node
 			n := newNode(cn.kind, cn.prefix[l:], cn, cn.children, cn.methodHandler, cn.ppath, cn.pnames)
-
-			// Update parent path for all children to new node
-			for _, child := range cn.children {
-				child.parent = n
-			}
 
 			// Reset parent node
 			cn.kind = skind
@@ -344,6 +336,7 @@ func (r *Router) Find(method, path string, c Context) {
 			}
 		}
 
+
 		if l == pl {
 			// Continue search
 			search = search[l:]
@@ -405,32 +398,16 @@ func (r *Router) Find(method, path string, c Context) {
 	Any:
 		if cn = cn.findChildByKind(akind); cn == nil {
 			if nn != nil {
-				// No next node to go down in routing (issue #954)
-				// Find nearest "any" route going up the routing tree
+				cn = nn
+				nn = cn.parent // Next (Issue #954)
+				if nn != nil {
+					nk = nn.kind
+				}
 				search = ns
-				np := nn.parent
-				// Consider param route one level up only
-				// if no slash is remaining in search string
-				if cn = nn.findChildByKind(pkind); cn != nil && strings.IndexByte(ns, '/') == -1 {
-					break
-				}
-				for {
-					np = nn.parent
-					if cn = nn.findChildByKind(akind); cn != nil {
-						break
-					}
-					if np == nil {
-						break // no further parent nodes in tree, abort
-					}
-					var str strings.Builder
-					str.WriteString(nn.prefix)
-					str.WriteString(search)
-					search = str.String()
-					nn = np
-				}
-				if cn != nil { // use the found "any" route and update path
-					pvalues[len(cn.pnames)-1] = search
-					break
+				if nk == pkind {
+					goto Param
+				} else if nk == akind {
+					goto Any
 				}
 			}
 			return // Not found

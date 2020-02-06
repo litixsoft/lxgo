@@ -183,9 +183,6 @@ type (
 		// Logger returns the `Logger` instance.
 		Logger() Logger
 
-		// Set the logger
-		SetLogger(l Logger)
-
 		// Echo returns the `Echo` instance.
 		Echo() *Echo
 
@@ -205,7 +202,6 @@ type (
 		handler  HandlerFunc
 		store    Map
 		echo     *Echo
-		logger   Logger
 		lock     sync.RWMutex
 	}
 )
@@ -351,8 +347,7 @@ func (c *context) FormParams() (url.Values, error) {
 }
 
 func (c *context) FormFile(name string) (*multipart.FileHeader, error) {
-	f, fh, err := c.request.FormFile(name)
-	defer f.Close()
+	_, fh, err := c.request.FormFile(name)
 	return fh, err
 }
 
@@ -602,15 +597,7 @@ func (c *context) SetHandler(h HandlerFunc) {
 }
 
 func (c *context) Logger() Logger {
-	res := c.logger
-	if res != nil {
-		return res
-	}
 	return c.echo.Logger
-}
-
-func (c *context) SetLogger(l Logger) {
-	c.logger = l
 }
 
 func (c *context) Reset(r *http.Request, w http.ResponseWriter) {
@@ -621,9 +608,6 @@ func (c *context) Reset(r *http.Request, w http.ResponseWriter) {
 	c.store = nil
 	c.path = ""
 	c.pnames = nil
-	c.logger = nil
 	// NOTE: Don't reset because it has to have length c.echo.maxParam at all times
-	for i := 0; i < *c.echo.maxParam; i++ {
-		c.pvalues[i] = ""
-	}
+	// c.pvalues = nil
 }

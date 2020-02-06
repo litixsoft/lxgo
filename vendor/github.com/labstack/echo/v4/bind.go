@@ -90,15 +90,13 @@ func (b *DefaultBinder) bindData(ptr interface{}, data map[string][]string, tag 
 	typ := reflect.TypeOf(ptr).Elem()
 	val := reflect.ValueOf(ptr).Elem()
 
-	// Map
-	if typ.Kind() == reflect.Map {
+	if m, ok := ptr.(*map[string]interface{}); ok {
 		for k, v := range data {
-			val.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v[0]))
+			(*m)[k] = v[0]
 		}
 		return nil
 	}
 
-	// !struct
 	if typ.Kind() != reflect.Struct {
 		return errors.New("binding element must be a struct")
 	}
