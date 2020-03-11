@@ -85,7 +85,7 @@ func TestPdf_CreatePdf(t *testing.T) {
 		response, err := pdf.CreatePdf(testTemplatePath, testData, opts)
 
 		its.Nil(response)
-		its.EqualError(err, "do request: Post \"test.host/create\": unsupported protocol scheme \"\"")
+		its.EqualError(err, "do request: Post test.host/create: unsupported protocol scheme \"\"")
 	})
 
 	t.Run("return error when remote service return with status 500", func(t *testing.T) {
