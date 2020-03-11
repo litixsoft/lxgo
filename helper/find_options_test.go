@@ -10,15 +10,17 @@ import (
 func TestFindOptions_ToMongoFindOptions(t *testing.T) {
 	its := assert.New(t)
 
+	expFields := map[string]int{"_id": 0, "name": 1, "email": 1}
 	expSort := map[string]int{"name": 1, "email": -1}
 	expSkip := int64(2)
 	expLimit := int64(5)
 
 	// Create test options
 	options := lxHelper.FindOptions{
-		Sort:  expSort,
-		Skip:  expSkip,
-		Limit: expLimit,
+		Sort:   expSort,
+		Skip:   expSkip,
+		Limit:  expLimit,
+		Fields: expFields,
 	}
 
 	// Convert to mongo find options
@@ -26,6 +28,7 @@ func TestFindOptions_ToMongoFindOptions(t *testing.T) {
 
 	// Check types
 	its.Equal("*options.FindOptions", reflect.TypeOf(opts).String())
+	its.Equal("primitive.D", reflect.TypeOf(opts.Projection).String())
 	its.Equal("map[string]int", reflect.TypeOf(opts.Sort).String())
 	its.Equal("*int64", reflect.TypeOf(opts.Skip).String())
 	its.Equal("*int64", reflect.TypeOf(opts.Limit).String())

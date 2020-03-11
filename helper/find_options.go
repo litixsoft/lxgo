@@ -1,20 +1,33 @@
 package lxHelper
 
-import "go.mongodb.org/mongo-driver/mongo/options"
+import (
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
 
 // FindOptions
 type FindOptions struct {
-	Sort  map[string]int `json:"sort,omitempty"`
-	Skip  int64          `json:"skip"`
-	Limit int64          `json:"limit"`
+	Fields map[string]int `json:"fields"`
+	Sort   map[string]int `json:"sort,omitempty"`
+	Skip   int64          `json:"skip"`
+	Limit  int64          `json:"limit"`
 }
 
 // ToMongoFindOptions
 func (fo *FindOptions) ToMongoFindOptions() *options.FindOptions {
 	opts := options.Find()
 	opts.SetSkip(fo.Skip)
-	opts.SetLimit(fo.Limit)
 	opts.SetSort(fo.Sort)
+
+	if fo.Limit > 0 {
+		opts.SetLimit(fo.Limit)
+	}
+
+	fields := make(bson.D, 0, len(fo.Fields))
+	for key, value := range fo.Fields {
+		fields = append(fields, bson.E{Key: key, Value: value})
+	}
+	opts.SetProjection(fields)
 	return opts
 }
 
@@ -23,6 +36,12 @@ func (fo *FindOptions) ToMongoFindOneOptions() *options.FindOneOptions {
 	opts := options.FindOne()
 	opts.SetSkip(fo.Skip)
 	opts.SetSort(fo.Sort)
+
+	fields := make(bson.D, 0, len(fo.Fields))
+	for key, value := range fo.Fields {
+		fields = append(fields, bson.E{Key: key, Value: value})
+	}
+	opts.SetProjection(fields)
 	return opts
 }
 
@@ -30,6 +49,12 @@ func (fo *FindOptions) ToMongoFindOneOptions() *options.FindOneOptions {
 func (fo *FindOptions) ToMongoFindOneAndDeleteOptions() *options.FindOneAndDeleteOptions {
 	opts := options.FindOneAndDelete()
 	opts.SetSort(fo.Sort)
+
+	fields := make(bson.D, 0, len(fo.Fields))
+	for key, value := range fo.Fields {
+		fields = append(fields, bson.E{Key: key, Value: value})
+	}
+	opts.SetProjection(fields)
 	return opts
 }
 
@@ -37,6 +62,12 @@ func (fo *FindOptions) ToMongoFindOneAndDeleteOptions() *options.FindOneAndDelet
 func (fo *FindOptions) ToMongoFindOneAndReplaceOptions() *options.FindOneAndReplaceOptions {
 	opts := options.FindOneAndReplace()
 	opts.SetSort(fo.Sort)
+
+	fields := make(bson.D, 0, len(fo.Fields))
+	for key, value := range fo.Fields {
+		fields = append(fields, bson.E{Key: key, Value: value})
+	}
+	opts.SetProjection(fields)
 	return opts
 }
 
@@ -44,6 +75,12 @@ func (fo *FindOptions) ToMongoFindOneAndReplaceOptions() *options.FindOneAndRepl
 func (fo *FindOptions) ToMongoFindOneAndUpdateOptions() *options.FindOneAndUpdateOptions {
 	opts := options.FindOneAndUpdate()
 	opts.SetSort(fo.Sort)
+
+	fields := make(bson.D, 0, len(fo.Fields))
+	for key, value := range fo.Fields {
+		fields = append(fields, bson.E{Key: key, Value: value})
+	}
+	opts.SetProjection(fields)
 	return opts
 }
 
@@ -51,6 +88,9 @@ func (fo *FindOptions) ToMongoFindOneAndUpdateOptions() *options.FindOneAndUpdat
 func (fo *FindOptions) ToMongoCountOptions() *options.CountOptions {
 	opts := options.Count()
 	opts.SetSkip(fo.Skip)
-	opts.SetLimit(fo.Limit)
+
+	if fo.Limit > 0 {
+		opts.SetLimit(fo.Limit)
+	}
 	return opts
 }
