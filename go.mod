@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/golang/mock v1.4.0
+	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/google/go-cmp v0.4.0
-	github.com/joonix/log v0.0.0-20190524090622-13fe31bbdd7a
 	github.com/klauspost/compress v1.9.8 // indirect
 	github.com/labstack/echo/v4 v4.1.11
 	github.com/mattn/go-colorable v0.1.4 // indirect
@@ -24,5 +24,4 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20200205142000-a86caf926a67 // indirect
 )

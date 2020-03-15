@@ -1,9 +1,10 @@
 package lxLog
 
 import (
-	joonix "github.com/joonix/log"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -12,13 +13,15 @@ import (
 type OutFormat int
 
 const (
-	LogLevelPanic = "panic"
-	LogLevelFatal = "fatal"
-	LogLevelError = "error"
-	LogLevelWarn  = "warn"
-	LogLevelInfo  = "info"
-	LogLevelDebug = "debug"
-	LogLevelTrace = "trace"
+	StackdriverErrKey     = "@type"
+	StackdriverErrorValue = "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent"
+	LogLevelPanic         = "panic"
+	LogLevelFatal         = "fatal"
+	LogLevelError         = "error"
+	LogLevelWarn          = "warn"
+	LogLevelInfo          = "info"
+	LogLevelDebug         = "debug"
+	LogLevelTrace         = "trace"
 
 	LogFormatText    = "text"
 	LogFormatJson    = "json"
@@ -39,6 +42,14 @@ func GetLogger() *logrus.Logger {
 		logger = logrus.New()
 	})
 	return logger
+}
+
+// GetMessageWithStack, return message string with stack trace
+func GetMessageWithStack(message string) string {
+	stackSlice := make([]byte, 512)
+	s := runtime.Stack(stackSlice, false)
+
+	return fmt.Sprintf("%s\n%s", message, stackSlice[0:s])
 }
 
 func GetOutFormat() OutFormat {
@@ -86,7 +97,14 @@ func InitLogger(output io.Writer, logLevel, logFormat string) (log *logrus.Logge
 		log.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339})
 		outFormat = FormatJson
 	case LogFormatFluentd:
-		log.SetFormatter(joonix.NewFormatter(joonix.StackdriverFormat, joonix.DisableTimestampFormat))
+		log.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: time.RFC3339,
+			FieldMap: logrus.FieldMap{
+				logrus.FieldKeyTime:  "timestamp",
+				logrus.FieldKeyLevel: "severity",
+				logrus.FieldKeyMsg:   "message",
+			},
+		})
 		outFormat = FormatFluentd
 	default:
 		log.SetFormatter(&logrus.TextFormatter{

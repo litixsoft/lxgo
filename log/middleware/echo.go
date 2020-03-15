@@ -107,10 +107,8 @@ func EchoLoggerWithConfig(config EchoLoggerConfig) echo.MiddlewareFunc {
 				)
 			case lxLog.FormatJson, lxLog.FormatFluentd:
 				// Create fluentd message
-				msg = fmt.Sprintf("| %3d | %13v | %15s | %-7s %s",
+				msg = fmt.Sprintf("%3d | %s %s",
 					res.Status,
-					stop.Sub(start).String(),
-					c.RealIP(),
 					req.Method,
 					req.RequestURI,
 				)
