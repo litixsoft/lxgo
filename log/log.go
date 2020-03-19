@@ -37,6 +37,15 @@ var logger *logrus.Logger
 var once sync.Once
 var hasInit bool
 
+// GetLogger, return singleton logger instance
+// Usage:
+//	log := lxLog.GetLogger()
+//
+// 	log.WithFields(logrus.Fields{
+//		"omg":                   true,
+//		"number":                100,
+//		lxLog.StackdriverErrKey: lxLog.StackdriverErrorValue,
+//	}).Error("Error without Stack and stackdriver error event!")
 func GetLogger() *logrus.Logger {
 	once.Do(func() {
 		logger = logrus.New()
@@ -45,6 +54,11 @@ func GetLogger() *logrus.Logger {
 }
 
 // GetMessageWithStack, return message string with stack trace
+// Usage:
+// 	log.WithFields(logrus.Fields{
+//		"omg":    true,
+//		"number": 100,
+//	}).Error(lxLog.GetMessageWithStack("Error with Stack!"))
 func GetMessageWithStack(message string) string {
 	stackSlice := make([]byte, 512)
 	s := runtime.Stack(stackSlice, false)
@@ -60,6 +74,9 @@ func HasInit() bool {
 	return hasInit
 }
 
+// InitLogger, setup the logger global
+// Usage:
+//  lxLog.InitLogger(os.Stdout, "debug", "text")
 func InitLogger(output io.Writer, logLevel, logFormat string) (log *logrus.Logger) {
 	log = GetLogger()
 	log.SetOutput(output)
