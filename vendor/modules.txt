@@ -8,11 +8,6 @@ github.com/go-stack/stack
 github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.3
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/protoc-gen-go/descriptor
-github.com/golang/protobuf/ptypes
-github.com/golang/protobuf/ptypes/any
-github.com/golang/protobuf/ptypes/duration
-github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.1
 github.com/golang/snappy
 # github.com/google/go-cmp v0.4.0
@@ -21,8 +16,6 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/joonix/log v0.0.0-20190524090622-13fe31bbdd7a
-github.com/joonix/log
 # github.com/klauspost/compress v1.9.8
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -130,8 +123,5 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
-# google.golang.org/genproto v0.0.0-20200205142000-a86caf926a67
-google.golang.org/genproto/googleapis/api/annotations
-google.golang.org/genproto/googleapis/logging/type
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2

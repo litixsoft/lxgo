@@ -36,7 +36,7 @@ var (
 
 // EchoLogger returns an EchoLogger middleware with default config.
 // Default config based on logger init
-// Example for use:
+// Usage:
 // e.Use(lxLogMiddleware.EchoLogger())
 func EchoLogger() echo.MiddlewareFunc {
 	if !lxLog.HasInit() {
@@ -47,7 +47,7 @@ func EchoLogger() echo.MiddlewareFunc {
 }
 
 // EchoLoggerWithConfig returns an EchoLogger middleware with custom config.
-// Example for use:
+// Usage:
 // e.Use(lxLogMiddleware.EchoLoggerWithConfig(lxLogMiddleware.EchoLoggerConfig {
 //     Logger: log,
 //     OutFormat: lxLog.FormatText,
@@ -107,10 +107,8 @@ func EchoLoggerWithConfig(config EchoLoggerConfig) echo.MiddlewareFunc {
 				)
 			case lxLog.FormatJson, lxLog.FormatFluentd:
 				// Create fluentd message
-				msg = fmt.Sprintf("| %3d | %13v | %15s | %-7s %s",
+				msg = fmt.Sprintf("%3d | %s %s",
 					res.Status,
-					stop.Sub(start).String(),
-					c.RealIP(),
 					req.Method,
 					req.RequestURI,
 				)
