@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // IPdf, interface for pdf service
@@ -152,7 +151,7 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %s", strings.ReplaceAll(err.Error(), "\"", ""))
+		return nil, fmt.Errorf("do request: %v", err)
 	}
 
 	if response.StatusCode == http.StatusOK {

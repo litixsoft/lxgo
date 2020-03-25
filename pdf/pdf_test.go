@@ -11,7 +11,7 @@ import (
 
 var (
 	testServiceKey   = "c470e652-6d46-4f9d-960d-f32d84e682e7"
-	testServiceUrl   = "test.host"
+	testServiceUrl   = "http://test.host"
 	testTemplateDir  = "fixtures"
 	testTemplatePath = "testTemplate.tmpl.html"
 	testFooterPath   = "testFooter.html"
@@ -85,7 +85,9 @@ func TestPdf_CreatePdf(t *testing.T) {
 		response, err := pdf.CreatePdf(testTemplatePath, testData, opts)
 
 		its.Nil(response)
-		its.EqualError(err, "do request: Post test.host/create: unsupported protocol scheme ")
+		its.NotNil(err)
+		its.Contains(err.Error(), "do request")
+		its.Contains(err.Error(), "dial tcp: lookup test.host: no such host")
 	})
 
 	t.Run("return error when remote service return with status 500", func(t *testing.T) {
