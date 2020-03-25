@@ -87,7 +87,7 @@ func TestPdf_CreatePdf(t *testing.T) {
 		its.Nil(response)
 		its.NotNil(err)
 		its.Contains(err.Error(), "do request")
-		its.Contains(err.Error(), "dial tcp: lookup test.host: no such host")
+		its.Contains(err.Error(), "dial tcp: lookup test.host")
 	})
 
 	t.Run("return error when remote service return with status 500", func(t *testing.T) {
