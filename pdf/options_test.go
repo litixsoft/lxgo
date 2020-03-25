@@ -31,19 +31,79 @@ func TestOptions_AddCssFile(t *testing.T) {
 	})
 }
 
-func TestOptions_AddFooterFile(t *testing.T) {
+func TestOptions_AddHeader(t *testing.T) {
 	its := assert.New(t)
 
 	t.Run("do nothing when path is empty", func(t *testing.T) {
-		opts := PdfOptions().AddFooterFile("")
+		opts := PdfOptions().AddHeader("")
 
-		its.Nil(opts.footer)
+		its.Nil(opts.header)
+		its.Nil(opts.headerData)
 	})
 
-	t.Run("add css file path", func(t *testing.T) {
-		opts := PdfOptions().AddFooterFile("footer")
+	t.Run("add header file path", func(t *testing.T) {
+		opts := PdfOptions().AddHeader("header")
+
+		its.Equal("header", *opts.header)
+		its.Nil(opts.headerData)
+	})
+
+	t.Run("do nothing when header path is empty although header data is not empty", func(t *testing.T) {
+		data := map[string]interface{}{
+			"foo": "bar",
+		}
+		opts := PdfOptions().AddHeader("", &data)
+
+		its.Nil(opts.header)
+		its.Nil(opts.headerData)
+	})
+
+	t.Run("add header file path and header data", func(t *testing.T) {
+		data := map[string]interface{}{
+			"foo": "bar",
+		}
+		opts := PdfOptions().AddHeader("header", &data)
+
+		its.Equal("header", *opts.header)
+		its.Equal(data, *opts.headerData)
+	})
+}
+
+func TestOptions_AddFooter(t *testing.T) {
+	its := assert.New(t)
+
+	t.Run("do nothing when path is empty", func(t *testing.T) {
+		opts := PdfOptions().AddFooter("")
+
+		its.Nil(opts.footer)
+		its.Nil(opts.footerData)
+	})
+
+	t.Run("add footer file path", func(t *testing.T) {
+		opts := PdfOptions().AddFooter("footer")
 
 		its.Equal("footer", *opts.footer)
+		its.Nil(opts.footerData)
+	})
+
+	t.Run("do nothing when footer path is empty although footer data is not empty", func(t *testing.T) {
+		data := map[string]interface{}{
+			"foo": "bar",
+		}
+		opts := PdfOptions().AddFooter("", &data)
+
+		its.Nil(opts.footer)
+		its.Nil(opts.footerData)
+	})
+
+	t.Run("add footer file path and footer data", func(t *testing.T) {
+		data := map[string]interface{}{
+			"foo": "bar",
+		}
+		opts := PdfOptions().AddFooter("footer", &data)
+
+		its.Equal("footer", *opts.footer)
+		its.Equal(data, *opts.footerData)
 	})
 }
 
@@ -172,10 +232,10 @@ func TestMergeOptions(t *testing.T) {
 	t.Run("set all fields", func(t *testing.T) {
 		opt := PdfOptions().AddImageFile("imageFile").AddCssFile("cssFile")
 		opt2 := PdfOptions().SetMargin(10, 10, 50, 10)
-		opt3 := PdfOptions().AddFooterFile("footer").SetLandscape(true).SetPaperSize(100, 50)
+		opt3 := PdfOptions().AddFooter("footer").SetLandscape(true).SetPaperSize(100, 50)
 
 		result := MergeOptions(opt, opt2, opt3)
-		expect := PdfOptions().AddImageFile("imageFile").AddCssFile("cssFile").SetMargin(10, 10, 50, 10).AddFooterFile("footer").SetLandscape(true).SetPaperSize(100, 50)
+		expect := PdfOptions().AddImageFile("imageFile").AddCssFile("cssFile").SetMargin(10, 10, 50, 10).AddFooter("footer").SetLandscape(true).SetPaperSize(100, 50)
 
 		its.Equal(expect, result)
 	})

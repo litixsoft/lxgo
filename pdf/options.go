@@ -1,10 +1,13 @@
 package lxPdf
 
 type options struct {
-	css    *[]string
-	footer *string
-	images *[]string
-	opts   *pdfOpts
+	css        *[]string
+	footer     *string
+	footerData *map[string]interface{}
+	header     *string
+	headerData *map[string]interface{}
+	images     *[]string
+	opts       *pdfOpts
 }
 
 type pdfOpts struct {
@@ -39,9 +42,24 @@ func (o *options) AddCssFile(path string) *options {
 	return o
 }
 
-func (o *options) AddFooterFile(path string) *options {
-	if path != "" {
-		o.footer = &path
+func (o *options) AddHeader(filepath string, data ...*map[string]interface{}) *options {
+	if filepath != "" {
+		o.header = &filepath
+
+		if len(data) > 0 {
+			o.headerData = data[0]
+		}
+	}
+	return o
+}
+
+func (o *options) AddFooter(filepath string, data ...*map[string]interface{}) *options {
+	if filepath != "" {
+		o.footer = &filepath
+
+		if len(data) > 0 {
+			o.footerData = data[0]
+		}
 	}
 	return o
 }
@@ -112,6 +130,19 @@ func MergeOptions(opts ...*options) *options {
 		// footer
 		if opt.footer != nil {
 			mergedOpts.footer = opt.footer
+
+			if opt.footerData != nil {
+				mergedOpts.footerData = opt.footerData
+			}
+		}
+
+		// header
+		if opt.header != nil {
+			mergedOpts.header = opt.header
+
+			if opt.headerData != nil {
+				mergedOpts.headerData = opt.headerData
+			}
 		}
 
 		// opts

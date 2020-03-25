@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // IPdf, interface for pdf service
@@ -65,7 +67,32 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	// add footer file to form body
 	if pdfOptions.footer != nil {
 		if err := p.addFormFile("footer", *pdfOptions.footer, multipartWriter); err != nil {
-			fmt.Printf("add footer: %v", err)
+			log.Printf("add footer: %v", err)
+		}
+
+		if pdfOptions.footerData != nil {
+			// parse incoming map[string]interface to []byte
+			if footerData, err := json.Marshal(*pdfOptions.footerData); err == nil {
+				if err := p.addFormField("footerData", footerData, multipartWriter); err != nil {
+					log.Printf("add footer data: %v", err)
+				}
+			}
+		}
+	}
+
+	// add header file to form body
+	if pdfOptions.header != nil {
+		if err := p.addFormFile("header", *pdfOptions.header, multipartWriter); err != nil {
+			log.Printf("add header: %v", err)
+		}
+
+		if pdfOptions.headerData != nil {
+			// parse incoming map[string]interface to []byte
+			if headerData, err := json.Marshal(*pdfOptions.headerData); err == nil {
+				if err := p.addFormField("headerData", headerData, multipartWriter); err != nil {
+					log.Printf("add header data: %v", err)
+				}
+			}
 		}
 	}
 
@@ -73,7 +100,7 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	if pdfOptions.css != nil {
 		for _, css := range *pdfOptions.css {
 			if err := p.addFormFile("css", css, multipartWriter); err != nil {
-				fmt.Printf("add css: %v\n", err)
+				log.Printf("add css: %v\n", err)
 				continue
 			}
 		}
@@ -83,7 +110,7 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	if pdfOptions.images != nil {
 		for _, image := range *pdfOptions.images {
 			if err := p.addFormFile("image", image, multipartWriter); err != nil {
-				fmt.Printf("add image: %v\n", err)
+				log.Printf("add image: %v\n", err)
 				continue
 			}
 		}
@@ -125,7 +152,7 @@ func (p *pdf) CreatePdf(template string, data map[string]interface{}, opts ...*o
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %v", err)
+		return nil, fmt.Errorf("do request: %s", strings.ReplaceAll(err.Error(), "\"", ""))
 	}
 
 	if response.StatusCode == http.StatusOK {
