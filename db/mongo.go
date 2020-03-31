@@ -77,7 +77,7 @@ func (repo *mongoBaseRepo) CreateIndexes(indexes interface{}, args ...interface{
 	// Convert indexModels
 	indexModels, ok := indexes.([]mongo.IndexModel)
 	if !ok {
-		return []string{}, errors.New("can't convert index models")
+		return []string{}, ErrIndexConvert
 	}
 
 	// create indexes
@@ -349,9 +349,12 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 	// Find and convert no documents error
 	err := repo.collection.FindOne(ctx, filter, opts).Decode(result)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return ErrNotFound
 		}
+		//if err == mongo.ErrNoDocuments {
+		//	return NewNotFoundError(err.Error())
+		//}
 
 		return err
 	}
@@ -387,9 +390,12 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	defer cancel()
 
 	if err := repo.collection.FindOneAndDelete(ctx, filter, opts).Decode(result); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return ErrNotFound
 		}
+		//if err == mongo.ErrNoDocuments {
+		//	return NewNotFoundError(err.Error())
+		//}
 		return err
 	}
 
@@ -494,9 +500,12 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
-				if err == mongo.ErrNoDocuments {
-					return NewNotFoundError(err.Error())
+				if errors.Is(err, mongo.ErrNoDocuments) {
+					return ErrNotFound
 				}
+				//if err == mongo.ErrNoDocuments {
+				//	return NewNotFoundError(err.Error())
+				//}
 				return err
 			}
 
@@ -539,9 +548,12 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 	defer cancel()
 
 	if err := repo.collection.FindOneAndReplace(ctx, filter, replacement, opts).Decode(result); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return ErrNotFound
 		}
+		//if err == mongo.ErrNoDocuments {
+		//	return NewNotFoundError(err.Error())
+		//}
 		return err
 	}
 
@@ -629,9 +641,12 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(result); err != nil {
-				if err == mongo.ErrNoDocuments {
-					return NewNotFoundError(err.Error())
+				if errors.Is(err, mongo.ErrNoDocuments) {
+					return ErrNotFound
 				}
+				//if err == mongo.ErrNoDocuments {
+				//	return NewNotFoundError(err.Error())
+				//}
 				return err
 			}
 
@@ -674,8 +689,11 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 	defer cancel()
 
 	if err := repo.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(result); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
+		//if err == mongo.ErrNoDocuments {
+		//	return NewNotFoundError(err.Error())
+		//}
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return ErrNotFound
 		}
 		return err
 	}
@@ -721,8 +739,11 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		foaOpts.SetReturnDocument(options.After)
 		var afterUpdate bson.M
 		if err := repo.collection.FindOneAndUpdate(ctx, filter, update, foaOpts).Decode(&afterUpdate); err != nil {
-			if err == mongo.ErrNoDocuments {
-				return NewNotFoundError(err.Error())
+			//if err == mongo.ErrNoDocuments {
+			//	return NewNotFoundError(err.Error())
+			//}
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return ErrNotFound
 			}
 			return err
 		}
@@ -754,7 +775,8 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	res, err := repo.collection.UpdateOne(ctx, filter, update, opts)
 
 	if res != nil && res.MatchedCount == 0 {
-		return NewNotFoundError()
+		//return NewNotFoundError()
+		return ErrNotFound
 	}
 
 	return err
@@ -900,8 +922,11 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	// Find document before delete for audit
 	var beforeDelete bson.D
 	if err := repo.collection.FindOneAndDelete(ctx, filter, opts).Decode(&beforeDelete); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return NewNotFoundError(err.Error())
+		//if err == mongo.ErrNoDocuments {
+		//	return NewNotFoundError(err.Error())
+		//}
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return ErrNotFound
 		}
 		return err
 	}

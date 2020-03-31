@@ -644,7 +644,7 @@ func TestMongoDbBaseRepo_FindOne(t *testing.T) {
 		var result TestUser
 		err = base.FindOne(filter, &result)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 }
 
@@ -697,7 +697,7 @@ func TestMongoBaseRepo_FindOneAndDelete(t *testing.T) {
 		var result TestUser
 		err = base.FindOneAndDelete(filter, &result)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("with audit", func(t *testing.T) {
 		// Test the base repo with mock
@@ -740,7 +740,7 @@ func TestMongoBaseRepo_FindOneAndDelete(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("with audit error", func(t *testing.T) {
 		// Test the base repo with mock
@@ -787,7 +787,7 @@ func TestMongoBaseRepo_FindOneAndDelete(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 }
 
@@ -939,7 +939,7 @@ func TestMongoBaseRepo_FindOneAndReplace(t *testing.T) {
 			// Find first entry sort by name and update
 			err = base.FindOneAndReplace(filter, replaceUser, &result, opts)
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 	})
 	t.Run("with audits", func(t *testing.T) {
@@ -1116,7 +1116,7 @@ func TestMongoBaseRepo_FindOneAndReplace(t *testing.T) {
 			// Wait for close channel and check err
 			//<-done
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 		// Should be use options.After by default
 		t.Run("SetReturnDocument without options", func(t *testing.T) {
@@ -1293,7 +1293,7 @@ func TestMongoBaseRepo_FindOneAndReplace(t *testing.T) {
 			// Wait for close channel and check err
 			//<-done
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 	})
 }
@@ -1425,7 +1425,7 @@ func TestMongoBaseRepo_FindOneAndUpdate(t *testing.T) {
 			// Find first entry sort by name and update
 			err = base.FindOneAndUpdate(filter, update, &result, opts)
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 	})
 	t.Run("with audits", func(t *testing.T) {
@@ -1587,7 +1587,7 @@ func TestMongoBaseRepo_FindOneAndUpdate(t *testing.T) {
 			err = base.FindOneAndUpdate(filter, update, &result, opts, lxDb.SetAuditAuth(au))
 
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 		t.Run("without SetReturnDocument", func(t *testing.T) {
 			// When SetReturnDocument not set, use options.After by default
@@ -1757,7 +1757,7 @@ func TestMongoBaseRepo_FindOneAndUpdate(t *testing.T) {
 			err = base.FindOneAndUpdate(filter, update, &result, opts, lxDb.SetAuditAuth(au))
 
 			its.Error(err)
-			its.IsType(&lxDb.NotFoundError{}, err)
+			its.True(errors.Is(err, lxDb.ErrNotFound))
 		})
 	})
 }
@@ -1888,7 +1888,7 @@ func TestMongoDbBaseRepo_UpdateOne(t *testing.T) {
 		update := bson.D{{"$set", bson.D{{"name", newName}}}}
 		err := base.UpdateOne(filter, update)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 }
 
@@ -2106,7 +2106,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("with audit", func(t *testing.T) {
 		// Test the base repo with mock
@@ -2149,7 +2149,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("with audit error", func(t *testing.T) {
 		// Test the base repo with mock
@@ -2196,7 +2196,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("not found error", func(t *testing.T) {
 		// Test the base repo
@@ -2205,7 +2205,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		filter := bson.D{{"_id", primitive.NewObjectID()}}
 		err := base.DeleteOne(filter)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 	t.Run("delete with options", func(t *testing.T) {
 		// Test the base repo
@@ -2222,7 +2222,7 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		var check TestUser
 		err = base.FindOne(bson.D{{"_id", tu.Id}}, &check)
 		its.Error(err)
-		its.IsType(&lxDb.NotFoundError{}, err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
 	})
 }
 
