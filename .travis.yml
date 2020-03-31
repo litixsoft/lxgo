@@ -7,6 +7,9 @@ services:
 
 -language: go
 
+go:
+  - 1.14.x
+
 before_install:
   - export MONGO_VERSION=4.2
   - export GOLANG_VERSION=1.14
