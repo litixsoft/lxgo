@@ -50,13 +50,12 @@ tasks:
   mocks:
     cmds:
       - mkdir -p audit/mocks
-      - mockgen -destination=audit/mocks/iaudit.go -package=lxAuditMocks github.com/litixsoft/lxgo/audit IAudit
+      - mockgen -source=audit/audit.go -destination=audit/mocks/iaudit.go -package=lxAuditMocks
       - mkdir -p crypt/mocks
-      - mockgen -destination=crypt/mocks/icrypt.go -package=lxCryptMocks github.com/litixsoft/lxgo/crypt ICrypt
+      - mockgen -source=crypt/crypt.go -destination=crypt/mocks/icrypt.go -package=lxCryptMocks
       - mkdir -p db/mocks
-      - mockgen -destination=db/mocks/ibaserepo.go -package=lxDbMocks github.com/litixsoft/lxgo/db IBaseRepo
-      - mockgen -destination=db/mocks/ibaserepoaudit.go -package=lxDbMocks github.com/litixsoft/lxgo/db IBaseRepoAudit
+      - mockgen -source=db/db.go -destination=db/mocks/ibaserepo.go -package=lxDbMocks
       - mkdir -p schema/mocks
-      - mockgen -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks github.com/litixsoft/lxgo/schema IJSONSchema
+      - mockgen -source=schema/schema.go -destination=schema/mocks/ijsonschema.go -package=lxSchemaMocks
       - mkdir -p webhooks/mocks
-      - mockgen -destination=webhooks/mocks/iwebhook.go -package=lxWebhooksMocks github.com/litixsoft/lxgo/webhooks IWebhook
+      - mockgen -source=webhooks/webhook.go -destination=webhooks/mocks/iwebhook.go -package=lxWebhooksMocks
