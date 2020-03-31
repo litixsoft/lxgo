@@ -1,7 +1,7 @@
 version: '3'
 services:
   lxgo:
-    image: golang:1.13
+    image: "golang:${GOLANG_VERSION}"
     volumes:
       - .:/root/app
     working_dir: /root/app
@@ -15,5 +15,5 @@ services:
       && ls -la
       && go test -cover ./..."
   lxgo-mongodb:
-    image: mongo:4.0
-    command: mongod --smallfiles --logpath=/dev/null # --quiet
+    image: "mongo:${MONGO_VERSION}"
+    command: mongod --logpath=/dev/null # --quiet
