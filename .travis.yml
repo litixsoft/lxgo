@@ -5,10 +5,10 @@ notifications:
 services:
   - docker
 
--language: go
-
-go:
-  - 1.14.x
+#-language: go
+#
+#go:
+#  - 1.14.x
 
 before_install:
   - export MONGO_VERSION=4.2
