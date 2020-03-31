@@ -11,6 +11,7 @@ services:
       - lxgo-mongodb
     command: >
       sh -c "go version
+      && go env
       && pwd
       && ls -la
       && go test -cover ./..."
