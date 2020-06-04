@@ -24,6 +24,7 @@ type IJSONSchema interface {
 	HasSchema(filename string) bool
 	LoadSchema(filename string) (gojsonschema.JSONLoader, error)
 	ValidateBind(schema string, req *http.Request, s interface{}) (*JSONValidationResult, error)
+	ValidateBindRaw(schema string, data *[]byte, s interface{}) (*JSONValidationResult, error)
 }
 
 type JSONSchema struct {
@@ -123,6 +124,55 @@ func (js *JSONSchema) ValidateBind(schema string, req *http.Request, s interface
 			})
 		}
 
+		return valResults, nil
+	}
+
+	if s != nil {
+		// if schema valid; and S given; translate
+		if err = json.Unmarshal(documentLoader.JsonSource().([]byte), s); err != nil {
+			return nil, err
+		}
+	}
+
+	// Return result
+	return nil, nil
+}
+
+// ValidateBindRaw - validate given byte array with schema and binds if success to interface{}
+func (js *JSONSchema) ValidateBindRaw(schema string, data *[]byte, s interface{}) (*JSONValidationResult, error) {
+	if data == nil {
+		return nil, fmt.Errorf("data is required")
+	}
+
+	schemaLoader, err := js.LoadSchema(schema)
+	if err != nil {
+		return nil, err
+	}
+
+	// No schema
+	if schemaLoader == nil {
+		return nil, fmt.Errorf("schema could not be loaded %s", schema)
+	}
+
+	// Transfer []byte stream to gojsonschema.documentLoader and Validate
+	documentLoader := gojsonschema.NewBytesLoader(*data)
+	res, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Is schema valid; then
+	if !res.Valid() {
+		valErrors := res.Errors()
+		valResults := &JSONValidationResult{}
+
+		for i := range valErrors {
+			valResults.Errors = append(valResults.Errors, JSONValidationErrors{
+				Field:   valErrors[i].Field(),
+				Message: valErrors[i].Type(),
+				Details: valErrors[i].Details(),
+			})
+		}
 		return valResults, nil
 	}
 
