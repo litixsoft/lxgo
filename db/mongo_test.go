@@ -2120,10 +2120,6 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		// Test user
 		tu := testUsers[6]
 
-		// TestUser to map for tests
-		doc, err := lxDb.ToBsonDoc(&tu)
-		its.NoError(err)
-
 		// AuditAuth
 		au := &bson.M{"name": "Timo Liebetrau"}
 
@@ -2131,7 +2127,9 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		doAction := func(action string, authUser, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Delete, action)
 			its.Equal(au, authUser)
-			its.Equal(doc, data)
+
+			expectedData := bson.M{"_id": tu.Id}
+			its.Equal(expectedData, data)
 		}
 
 		// Configure mock
@@ -2163,10 +2161,6 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		// Test user
 		tu := testUsers[7]
 
-		// TestUser to map for tests
-		doc, err := lxDb.ToBsonDoc(&tu)
-		its.NoError(err)
-
 		// AuditAuth
 		au := &bson.M{"name": "Timo Liebetrau"}
 
@@ -2174,7 +2168,9 @@ func TestMongoDbBaseRepo_DeleteOne(t *testing.T) {
 		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
 			its.Equal(lxDb.Delete, act)
 			its.Equal(au, usr)
-			its.Equal(doc, data)
+
+			expectedData := bson.M{"_id": tu.Id}
+			its.Equal(expectedData, data)
 		}
 
 		// Configure mock

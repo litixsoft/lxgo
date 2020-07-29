@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -898,7 +899,9 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	defer cancel()
 
 	// Find document before delete for audit
-	var beforeDelete bson.D
+	var beforeDelete struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
 	if err := repo.collection.FindOneAndDelete(ctx, filter, opts).Decode(&beforeDelete); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return ErrNotFound
@@ -915,7 +918,7 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 			}()
 
 			// Write to logger
-			if err := repo.audit.LogEntry(Delete, authUser, &beforeDelete); err != nil {
+			if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": beforeDelete.ID}); err != nil {
 				log.Printf("audit delete error: %v\n", err)
 				chanErr <- err
 				return
