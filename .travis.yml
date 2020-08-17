@@ -1,6 +1,6 @@
 sudo: required
 notifications:
-  slack: litixsoft:MK3nCw9B3WA7oIP075BqXrkX
+  webhooks: https://outlook.office.com/webhook/60583ba8-c5ce-4430-bbd3-2fa334fae87d@6c6c46b4-fb1d-475e-8011-684739c7ca7e/TravisCI/66fa07317b6d41d0bdf4aa09f6f8689a/249c6ecb-24f4-45ee-a889-436388713e0a
 
 services:
   - docker
