@@ -24,6 +24,8 @@ type IBaseRepo interface {
 	GetCollection() interface{}
 	GetDb() interface{}
 	GetRepoName() string
+	SetLocale(code string)
+	Aggregate(pipeline interface{}, result interface{}, args ...interface{}) error
 }
 
 type IBaseRepoAudit interface {
