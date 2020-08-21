@@ -1,0 +1,12 @@
+[
+    {"index":3,"isActive":true,"name":"Church Chase","gender":"male","email":"churchchase@digirang.com","username":"Elit"},
+    {"index":8,"isActive":false,"name":"Ball Huber","gender":"male","email":"ballhuber@digirang.com","username":"occaecat"},
+    {"index":6,"isActive":false,"name":"Valeria Moon","gender":"female","email":"valeriamoon@digirang.com","username":"ex"},
+    {"index":5,"isActive":false,"name":"Booker Kelly","gender":"male","email":"bookerkelly@digirang.com","username":"est"},
+    {"index":4,"isActive":false,"name":"Jacqueline Larson","gender":"female","email":"jacquelinelarson@digirang.com","username":"Esse"},
+    {"index":7,"isActive":false,"name":"Tonia Olson","gender":"female","email":"toniaolson@digirang.com","username":"laborum"},
+    {"index":2,"isActive":true,"name":"Joseph Wyatt","gender":"male","email":"josephwyatt@digirang.com","username":"cupidatat"},
+    {"index":9,"isActive":true,"name":"Hayes Hamilton","gender":"male","email":"hayeshamilton@digirang.com","username":"ut"},
+    {"index":0,"isActive":true,"name":"Vinson Fuentes","gender":"male","email":"vinsonfuentes@digirang.com","username":"Adipisicing"},
+    {"index":1,"isActive":true,"name":"Gross Burnett","gender":"male","email":"grossburnett@digirang.com","username":"amet"}
+]

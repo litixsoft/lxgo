@@ -23,6 +23,7 @@ const (
 type mongoBaseRepo struct {
 	collection *mongo.Collection
 	audit      IBaseRepoAudit
+	locale     *string
 }
 
 // NewMongoBaseRepo, return base repo instance
@@ -38,6 +39,7 @@ func NewMongoBaseRepo(collection *mongo.Collection, baseRepoAudit ...IBaseRepoAu
 	return &mongoBaseRepo{
 		collection: collection,
 		audit:      audit,
+		locale:     nil,
 	}
 }
 
@@ -318,6 +320,12 @@ func (repo *mongoBaseRepo) Find(filter interface{}, result interface{}, args ...
 		}
 	}
 
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -342,6 +350,12 @@ func (repo *mongoBaseRepo) FindOne(filter interface{}, result interface{}, args 
 		case *options.FindOneOptions:
 			opts = val
 		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -381,6 +395,12 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 		case chan error:
 			chanErr = val
 		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -435,6 +455,12 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 		case chan error:
 			chanErr = val
 		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
 	}
 
 	// Audit only with options.After
@@ -572,6 +598,12 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 		}
 	}
 
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
+	}
+
 	// Audit only with options.After
 	if authUser != nil && repo.audit != nil {
 		// Check and set options
@@ -706,6 +738,12 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		}
 	}
 
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
+	}
+
 	if authUser != nil && repo.audit != nil {
 		// When audit then save doc before update for compare
 		var beforeUpdate bson.M
@@ -787,6 +825,12 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 		case *SubIdName:
 			subIdName = val.Name
 		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
 	}
 
 	// Return UpdateManyResult
@@ -895,6 +939,12 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 		}
 	}
 
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -954,6 +1004,12 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 		case *SubIdName:
 			subIdName = val.Name
 		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
 	}
 
 	// Return UpdateManyResult
@@ -1029,4 +1085,54 @@ func (repo *mongoBaseRepo) GetDb() interface{} {
 // GetRepoName, get name of repo (database/collection)
 func (repo *mongoBaseRepo) GetRepoName() string {
 	return repo.collection.Database().Name() + "/" + repo.collection.Name()
+}
+
+// SetLocale, sets locale string for collation repository wide, empty string will be remove settings
+func (repo *mongoBaseRepo) SetLocale(code string) {
+	if code == "" {
+		repo.locale = nil
+	} else {
+		repo.locale = &code
+	}
+}
+
+// Aggregate, performs a aggregation with binding to result
+func (repo *mongoBaseRepo) Aggregate(pipeline interface{}, result interface{}, args ...interface{}) error {
+	// Default values
+	timeout := DefaultTimeout
+	opts := &options.AggregateOptions{}
+
+	for i := 0; i < len(args); i++ {
+		switch val := args[i].(type) {
+		case time.Duration:
+			timeout = val
+		case *options.AggregateOptions:
+			opts = val
+		}
+	}
+
+	if repo.locale != nil && opts.Collation == nil {
+		opts.SetCollation(&options.Collation{
+			Locale: *repo.locale,
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cur, err := repo.collection.Aggregate(ctx, pipeline, opts)
+	if err != nil {
+		return err
+	}
+
+	if result != nil {
+		ctxCursor, cancelCursor := context.WithTimeout(context.Background(), timeout)
+		defer cancelCursor()
+
+		if err := cur.All(ctxCursor, result); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

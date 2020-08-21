@@ -30,10 +30,21 @@ type TestUser struct {
 	IsActive bool               `json:"is_active,omitempty" bson:"is_active"`
 }
 
+type TestUserLocale struct {
+	Index    int    `json:"index" bson:"index"`
+	Name     string `json:"name" bson:"name"`
+	Gender   string `json:"gender" bson:"gender"`
+	Email    string `json:"email" bson:"email"`
+	IsActive bool   `json:"isActive,omitempty" bson:"isActive"`
+	Username string `json:"username" bson:"username"`
+}
+
 const (
-	TestDbName     = "lxgo_test"
-	TestCollection = "users"
-	FixturesPath   = "fixtures/users.test.json"
+	TestDbName           = "lxgo_test"
+	TestCollection       = "users"
+	TestCollectionLocale = "locale"
+	FixturesPath         = "fixtures/users.test.json"
+	FixturesPathLocale   = "fixtures/locale.test.json"
 )
 
 var (
@@ -90,6 +101,41 @@ func setupData(db *mongo.Database) []TestUser {
 	sort.Slice(users[:], func(i, j int) bool {
 		return users[i].Name < users[j].Name
 	})
+
+	// Return mongo connection
+	return users
+}
+
+func setupDataLocale(db *mongo.Database) []TestUserLocale {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+
+	// Locale
+	collection := db.Collection(TestCollectionLocale)
+	if err := collection.Drop(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	// Load test data from json file
+	raw, err := ioutil.ReadFile(FixturesPathLocale)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert
+	var users []TestUserLocale
+	if err := json.Unmarshal(raw, &users); err != nil {
+		log.Fatal(err)
+	}
+
+	// Make Test users map and insert test data in db
+	for i := 0; i < len(users); i++ {
+		// Insert user
+		_, err := collection.InsertOne(ctx, users[i])
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	// Return mongo connection
 	return users
@@ -2371,4 +2417,127 @@ func TestMongoBaseRepo_GetRepoName(t *testing.T) {
 	expect := db.Name() + "/" + collection.Name()
 
 	its.Equal(expect, base.GetRepoName())
+}
+
+func TestMongoDbBaseRepo_Aggregate(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupData(db)
+
+	// Create expectUsers for compare result
+	skip := 5
+	limit := 5
+	y := 0
+	var (
+		expectUsers  []TestUser
+		expectFemale []TestUser
+	)
+	for i := range testUsers {
+		if testUsers[i].Gender == "Female" {
+			expectFemale = append(expectFemale, testUsers[i])
+		}
+		if i > (skip-1) && y < limit {
+			expectUsers = append(expectUsers, testUsers[i])
+			y++
+		}
+	}
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+	t.Run("with $skip/$limit", func(t *testing.T) {
+		// Build mongo pipeline
+		pipeline := mongo.Pipeline{
+			bson.D{{
+				"$match", bson.M{},
+			}},
+			bson.D{{
+				"$sort", bson.M{
+					"name": 1,
+				},
+			}},
+			bson.D{{
+				"$skip", 5,
+			}},
+			bson.D{{
+				"$limit", 5,
+			}},
+		}
+
+		var result []TestUser
+		err = base.Aggregate(pipeline, &result, time.Second*10)
+
+		its.NoError(err)
+		its.Equal(expectUsers, result)
+	})
+	t.Run("with $match", func(t *testing.T) {
+		pipeline := mongo.Pipeline{
+			bson.D{{
+				"$match", bson.D{{"gender", "Female"}},
+			}},
+			bson.D{{
+				"$sort", bson.M{
+					"name": 1,
+				},
+			}},
+		}
+
+		var result []TestUser
+		err = base.Aggregate(pipeline, &result)
+		its.NoError(err)
+		its.Equal(expectFemale, result)
+	})
+	t.Run("without result", func(t *testing.T) {
+		pipeline := mongo.Pipeline{
+			bson.D{{
+				"$match", bson.D{{"gender", "Female"}},
+			}},
+			bson.D{{
+				"$sort", bson.M{
+					"name": 1,
+				},
+			}},
+		}
+
+		err = base.Aggregate(pipeline, nil)
+		its.NoError(err)
+	})
+}
+
+func TestMongoDbBaseRepo_LocaleTest(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupDataLocale(db)
+
+	// sort by index that's will be ordered by username
+	sort.Slice(testUsers[:], func(i, j int) bool {
+		return testUsers[i].Index < testUsers[j].Index
+	})
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollectionLocale))
+	base.SetLocale("de")
+
+	t.Run("with find and locale set to 'de' and ordered by 'username'", func(t *testing.T) {
+		// Find options in other format
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"username": 1},
+		}
+
+		filter := bson.M{}
+
+		var result []TestUserLocale
+		err = base.Find(filter, &result, fo.ToMongoFindOptions(), time.Second*10)
+
+		its.NoError(err)
+		its.Equal(testUsers, result)
+	})
 }
