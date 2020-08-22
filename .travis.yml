@@ -12,6 +12,6 @@ before_install:
   - docker pull mongo:${MONGO_VERSION}
 
 script:
-  - docker-compose -f ./compose.test.yaml build
-  - docker-compose -f ./compose.test.yaml run lxgo
-  - docker-compose -f ./compose.test.yaml down
+  - docker-compose -f ./docker-compose.test.yaml build
+  - docker-compose -f ./docker-compose.test.yaml run lxgo
+  - docker-compose -f ./docker-compose.test.yaml down

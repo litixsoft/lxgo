@@ -1,9 +1,9 @@
 version: '2'
 vars:
-  GOLANG_VERSION: '1.14'
+  GOLANG_VERSION: '1.15'
   MONGO_VERSION: '4.2'
   SERVICE: 'lxgo'
-  COMPOSE_TEST: 'compose.test.yaml'
+  COMPOSE_TEST: 'docker-compose.test.yaml'
   VERSION: {sh: git describe --tags}
 
 tasks:
