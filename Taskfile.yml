@@ -3,7 +3,7 @@ vars:
   GOLANG_VERSION: '1.15'
   MONGO_VERSION: '4.2'
   SERVICE: 'lxgo'
-  COMPOSE_TEST: 'docker-compose.test.yaml'
+  COMPOSE_TEST: 'docker-compose.test.yml'
   VERSION: {sh: git describe --tags}
 
 tasks:
