@@ -2,17 +2,18 @@ package lxAudit_test
 
 import (
 	"encoding/json"
-	"github.com/litixsoft/lxgo/audit"
+	lxAudit "github.com/litixsoft/lxgo/audit"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	//"time"
 )
 
 var (
-	testKey            = "c470e652-6d46-4f9d-960d-f32d84e682e7"
+	testKey            = "d6a34742-0a91-4fa9-81c3-934c76f72634"
 	testClientHost     = "test.host"
 	testCollectionName = "test.collection"
 	testUser           = bson.M{"name": "Timo Liebetrau", "age": float64(45)}
@@ -113,122 +114,165 @@ func getTestServer(t *testing.T, rtStatus int, testPath string) *httptest.Server
 	}))
 }
 
-func TestAudit_LogEntry(t *testing.T) {
-	its := assert.New(t)
+//func TestAudit_LogEntry(t *testing.T) {
+//	its := assert.New(t)
+//
+//	t.Run("http.StatusOK", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusOK, "/v1/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//
+//		// log test entry and check error
+//		its.NoError(audit.LogEntry(lxAudit.Update, testUser, testData))
+//	})
+//	t.Run("http.StatusInternalServerError", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusInternalServerError, "/v1/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//
+//		// log test entry and check error
+//		err := audit.LogEntry(lxAudit.Update, testUser, testData)
+//		its.Error(err)
+//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
+//		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
+//	})
+//	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//
+//		// log test entry and check error
+//		err := audit.LogEntry(lxAudit.Update, testUser, testData)
+//		its.Error(err)
+//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
+//		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
+//	})
+//}
 
-	t.Run("http.StatusOK", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusOK, "/v1/log")
-		defer server.Close()
+//func TestAudit_LogEntries(t *testing.T) {
+//	its := assert.New(t)
+//
+//	// testEntries for check
+//	testEntries := bson.A{
+//		bson.M{
+//			"action": "insert",
+//			"user": bson.M{
+//				"name": "Timo Liebetrau",
+//			},
+//			"data": bson.M{
+//				"firstname": "Timo_1",
+//				"lastname":  "Liebetrau_1",
+//			},
+//		},
+//		bson.M{
+//			"action": "update",
+//			"user": bson.M{
+//				"name": "Timo Liebetrau",
+//			},
+//			"data": bson.M{
+//				"firstname": "Timo_2",
+//				"lastname":  "Liebetrau_2",
+//			},
+//		},
+//		bson.M{
+//			"action": "delete",
+//			"user": bson.M{
+//				"name": "Timo Liebetrau",
+//			},
+//			"data": bson.M{
+//				"firstname": "Timo_3",
+//				"lastname":  "Liebetrau_3",
+//			},
+//		},
+//	}
+//
+//	t.Run("http.StatusOK", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusOK, "/v1/bulk/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//		its.NoError(audit.LogEntries(testEntries))
+//	})
+//	t.Run("http.StatusInternalServerError", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusInternalServerError, "/v1/bulk/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//
+//		// log test entry and check error
+//		err := audit.LogEntries(testEntries)
+//		its.Error(err)
+//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
+//		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
+//	})
+//	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
+//		// get server and close the server when test finishes
+//		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/bulk/log")
+//		defer server.Close()
+//
+//		// instance
+//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+//
+//		// log test entry and check error
+//		err := audit.LogEntries(testEntries)
+//		its.Error(err)
+//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
+//		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
+//	})
+//}
 
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+func TestAudit_Worker(t *testing.T) {
+	// get server and close the server when test finishes
+	//server := getTestServer(t, http.StatusOK, "/v1/log")
+	//defer server.Close()
 
-		// log test entry and check error
-		its.NoError(audit.LogEntry(lxAudit.Update, testUser, testData))
-	})
-	t.Run("http.StatusInternalServerError", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusInternalServerError, "/v1/log")
-		defer server.Close()
+	// Global
+	//lxAudit.InitAuditWorker(testClientHost, "http://localhost:3000", testKey, 2)
 
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
+	//// instance
+	//numberOfJobs := 20
+	//for j := 0; j < numberOfJobs; j++ {
+	//	go func(j int) {
+	//		t.Log("Start Job:", j)
+	//		worker.Queue <- lxAudit.AuditEntry{
+	//			Collection: testCollectionName,
+	//			Action: fmt.Sprintf("delete_%d", j),
+	//			User:   lxHelper.M{"name": fmt.Sprintf("tester_%d", j)},
+	//			Data:   lxHelper.M{"foo": fmt.Sprintf("bar_%d", j)},
+	//		}
+	//	}(j)
+	//}
+	//
+	//t.Log("Wait for jobs:", numberOfJobs)
+	//for c := 0; c < numberOfJobs; c++ {
+	//	<-worker.Err
+	//	<-worker.Done
+	//}
+	//
+	//t.Log("finished")
+	//// cleaning workers
+	//close(worker.Kill)
+	//time.Sleep(2 * time.Second)
 
-		// log test entry and check error
-		err := audit.LogEntry(lxAudit.Update, testUser, testData)
-		its.Error(err)
-		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
-	})
-	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/log")
-		defer server.Close()
+	//t.Log("Post")
+	//lxAudit.LogEntry(lxAudit.AuditEntry{
+	//	Collection: testCollectionName,
+	//	Action:     lxAudit.Update,
+	//	User:       testUser,
+	//	Data:       testData,
+	//})
 
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-
-		// log test entry and check error
-		err := audit.LogEntry(lxAudit.Update, testUser, testData)
-		its.Error(err)
-		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
-	})
-}
-
-func TestAudit_LogEntries(t *testing.T) {
-	its := assert.New(t)
-
-	// testEntries for check
-	testEntries := bson.A{
-		bson.M{
-			"action": "insert",
-			"user": bson.M{
-				"name": "Timo Liebetrau",
-			},
-			"data": bson.M{
-				"firstname": "Timo_1",
-				"lastname":  "Liebetrau_1",
-			},
-		},
-		bson.M{
-			"action": "update",
-			"user": bson.M{
-				"name": "Timo Liebetrau",
-			},
-			"data": bson.M{
-				"firstname": "Timo_2",
-				"lastname":  "Liebetrau_2",
-			},
-		},
-		bson.M{
-			"action": "delete",
-			"user": bson.M{
-				"name": "Timo Liebetrau",
-			},
-			"data": bson.M{
-				"firstname": "Timo_3",
-				"lastname":  "Liebetrau_3",
-			},
-		},
-	}
-
-	t.Run("http.StatusOK", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusOK, "/v1/bulk/log")
-		defer server.Close()
-
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-		its.NoError(audit.LogEntries(testEntries))
-	})
-	t.Run("http.StatusInternalServerError", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusInternalServerError, "/v1/bulk/log")
-		defer server.Close()
-
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-
-		// log test entry and check error
-		err := audit.LogEntries(testEntries)
-		its.Error(err)
-		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
-	})
-	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
-		// get server and close the server when test finishes
-		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/bulk/log")
-		defer server.Close()
-
-		// instance
-		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-
-		// log test entry and check error
-		err := audit.LogEntries(testEntries)
-		its.Error(err)
-		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
-	})
 }

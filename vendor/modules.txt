@@ -2,6 +2,9 @@
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
+# github.com/go-resty/resty/v2 v2.3.0
+## explicit
+github.com/go-resty/resty/v2
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
 # github.com/golang/mock v1.4.3
@@ -113,14 +116,14 @@ golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
-# golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
-## explicit
+# golang.org/x/net v0.0.0-20200513185701-a91f0712d120
 golang.org/x/net/context
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/h2c
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
+golang.org/x/net/publicsuffix
 # golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 ## explicit
 golang.org/x/sync/semaphore

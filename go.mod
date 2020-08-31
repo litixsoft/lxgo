@@ -3,6 +3,7 @@ module github.com/litixsoft/lxgo
 go 1.14
 
 require (
+	github.com/go-resty/resty/v2 v2.3.0
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/google/go-cmp v0.4.0
@@ -17,7 +18,6 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.mongodb.org/mongo-driver v1.3.1
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
