@@ -235,6 +235,62 @@ func getTestServer(t *testing.T, rtStatus int, testPath string) *httptest.Server
 //}
 
 func TestAudit_Worker(t *testing.T) {
+	//message := lxHelper.M {
+	//	"hello": "world",
+	//	"life":  42,
+	//	"embedded": map[string]string{
+	//		"yes": "of course!",
+	//	},
+	//}
+	//
+	//jsonData, err := json.Marshal(message)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//
+	//resp, err := http.Post("http://localhost:3000", "application/json", bytes.NewBuffer(jsonData))
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//
+	//t.Log(resp.ContentLength)
+	//t.Log(resp.Header.Get("Content-Type"))
+	//t.Log(resp.Body)
+	//
+	//var result lxHelper.M
+	//if resp.ContentLength > 0 && resp.Header.Get("Content-Type") == "application/json; charset=UTF-8" {
+	//	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	//		log.Fatal(err)
+	//	}
+	//}
+
+	//for k,v  := range result {
+	//	log.Println(k,v)
+	//}
+
+	//t.Log(result)
+
+	// Create a Resty Client
+	//client := resty.New()
+	//
+	//var reqErr lxHelper.M
+	//var result lxHelper.M
+	//ctx, cancel := context.WithTimeout(context.Background(), time.Second * 30)
+	//defer cancel()
+	//resp, err := client.R().
+	//	SetContext(ctx).
+	//	SetHeader("Content-Type", "application/json").
+	//	//SetAuthToken(workerConfig.auditAuthKey).
+	//	SetBody(message).
+	//	SetError(&reqErr).
+	//	SetResult(&result).
+	//	Post("http://localhost:3000")
+	//
+	//t.Log(err)
+	//t.Log(resp)
+	//t.Log(reqErr)
+	//t.Log(result)
+
 	// get server and close the server when test finishes
 	//server := getTestServer(t, http.StatusOK, "/v1/log")
 	//defer server.Close()
