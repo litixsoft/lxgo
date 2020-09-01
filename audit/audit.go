@@ -1,12 +1,12 @@
 package lxAudit
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-resty/resty/v2"
 	lxHelper "github.com/litixsoft/lxgo/helper"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
 
 	//"net/http"
@@ -40,9 +40,14 @@ const (
 	PathLogEntries = "/v1/bulk/log"
 )
 
-var once sync.Once
-var hasInit bool
-var workerConfig *WorkerConfig
+var (
+	once                   sync.Once
+	hasInit                bool
+	workerConfig           *WorkerConfig
+	log                    *logrus.Entry
+	ErrQueueAuditEntryType = errors.New("queue must be AuditEntry or []AuditEntry type")
+	ErrByAuditService      = errors.New("audit service response error")
+)
 
 // GetAuditWorker, return singleton worker instance
 // Usage:
@@ -66,11 +71,12 @@ func GetWorkerConfig() *WorkerConfig {
 }
 
 // InitAuditWorker
-func InitAuditWorker(clientHost, auditHost, auditAuthKey string, workers ...int) *WorkerConfig {
+func InitAuditWorker(clientHost, auditHost, auditAuthKey string, logEntry *logrus.Entry, workers ...int) {
 	awc := GetWorkerConfig()
 	awc.clientHost = clientHost
 	awc.auditHost = auditHost
 	awc.auditAuthKey = auditAuthKey
+	log = logEntry
 
 	// When workers not set,
 	// then default value is 1
@@ -86,10 +92,9 @@ func InitAuditWorker(clientHost, auditHost, auditAuthKey string, workers ...int)
 	}
 
 	hasInit = true
-	return awc
 }
 
-func HasInit() bool {
+func HasAuditWorkerInit() bool {
 	return hasInit
 }
 
@@ -101,22 +106,27 @@ func auditWorker() {
 			// Convert type of queue
 			switch val := q.(type) {
 			default:
-				fmt.Println("queue must be AuditEntry or []AuditEntry")
-				workerConfig.Err <- errors.New("queue type must be AuditEntry or []AuditEntry")
+				log.Error(ErrQueueAuditEntryType)
+				workerConfig.Err <- ErrQueueAuditEntryType
 				workerConfig.Done <- true
 			case AuditEntry:
-				fmt.Println("doing work with AuditEntry!!", val)
+				//if err := requestAuditEntry(val); err != nil {
+				//
+				//	workerConfig.Err <- nil
+				//	workerConfig.Done <- true
+				//
+				//}
+				time.Sleep(time.Millisecond * 100)
 				workerConfig.Err <- nil
 				workerConfig.Done <- true
 			case []AuditEntry:
-				fmt.Println("doing work with AuditEntries!!", val)
+				log.Debug("doing work with AuditEntries!!", val)
+				time.Sleep(time.Millisecond * 100)
 				workerConfig.Err <- nil
 				workerConfig.Done <- true
 			}
-
-			time.Sleep(time.Millisecond * 100)
-
 		case <-workerConfig.Kill:
+			log.Warn("shutdown worker with kill signal")
 			return
 		}
 	}
@@ -225,20 +235,60 @@ func auditWorker() {
 ///////////////////////////////////
 
 // Log, send post request to audit service
-func LogEntry(entry AuditEntry, timeout ...time.Duration) error {
+func requestAuditEntry(entry AuditEntry, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
 		to = timeout[0]
 	}
 
+	// Set client with timeout
+	client := &http.Client{
+		Timeout: to,
+	}
+
 	// Set entry for request
-	//body := bson.M{
-	//	"host":       workerConfig.clientHost,
-	//	"collection": entry.Collection,
-	//	"action":     entry.Action,
-	//	"user":       entry.User,
-	//	"data":       entry.Data,
-	//}
+	jsonBody, err := json.Marshal(lxHelper.M{
+		"host":       workerConfig.clientHost,
+		"collection": entry.Collection,
+		"action":     entry.Action,
+		"user":       entry.User,
+		"data":       entry.Data,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set request
+	req, err := http.NewRequest("POST", workerConfig.auditHost, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+
+	// Set header for request
+	req.Header.Set("Content-type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+workerConfig.auditAuthKey)
+
+	// Start request
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	// Check error
+	var result lxHelper.M
+	if resp.ContentLength > 0 {
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return err
+		}
+
+		return fmt.Errorf("status: %d error: %v", resp.StatusCode, result)
+	}
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("status must be 200, actual: %d", resp.StatusCode)
+	}
+
+	//t.Log(result)
 
 	// Header
 	//header := http.Header{}
@@ -249,34 +299,34 @@ func LogEntry(entry AuditEntry, timeout ...time.Duration) error {
 	//uri := workerConfig.auditHost + PathLogEntry
 
 	// Create a Resty Client
-	client := resty.New()
-
-	ctx, cancel := context.WithTimeout(context.Background(), to)
-	defer cancel()
-	resp, err := client.R().
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/json").
-		SetAuthToken(workerConfig.auditAuthKey).
-		SetBody(lxHelper.M{
-			"host":       workerConfig.clientHost,
-			"collection": entry.Collection,
-			"action":     entry.Action,
-			//"user":       entry.User,
-			"data": entry.Data,
-		}).
-		Post(workerConfig.auditHost + PathLogEntry)
-
-	if resp.StatusCode() != http.StatusOK {
-
-	}
-
-	log.Println("err:", err)
-	log.Println(resp.Status())
-	log.Println(resp.StatusCode())
-	log.Println(string(resp.Body()))
-
-	log.Println("resp:", resp)
-	log.Printf("%T", resp)
+	//client := resty.New()
+	//
+	//ctx, cancel := context.WithTimeout(context.Background(), to)
+	//defer cancel()
+	//resp, err := client.R().
+	//	SetContext(ctx).
+	//	SetHeader("Content-Type", "application/json").
+	//	SetAuthToken(workerConfig.auditAuthKey).
+	//	SetBody(lxHelper.M{
+	//		"host":       workerConfig.clientHost,
+	//		"collection": entry.Collection,
+	//		"action":     entry.Action,
+	//		//"user":       entry.User,
+	//		"data": entry.Data,
+	//	}).
+	//	Post(workerConfig.auditHost + PathLogEntry)
+	//
+	//if resp.StatusCode() != http.StatusOK {
+	//
+	//}
+	//
+	//log.Println("err:", err)
+	//log.Println(resp.Status())
+	//log.Println(resp.StatusCode())
+	//log.Println(string(resp.Body()))
+	//
+	//log.Println("resp:", resp)
+	//log.Printf("%T", resp)
 
 	//// Request
 	//resp, err := lxHelper.Request(header, body, uri, "POST", to)

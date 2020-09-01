@@ -2,12 +2,17 @@ package lxAudit_test
 
 import (
 	"encoding/json"
+	"fmt"
 	lxAudit "github.com/litixsoft/lxgo/audit"
+	lxHelper "github.com/litixsoft/lxgo/helper"
+	lxLog "github.com/litixsoft/lxgo/log"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	//"time"
 )
@@ -235,93 +240,86 @@ func getTestServer(t *testing.T, rtStatus int, testPath string) *httptest.Server
 //}
 
 func TestAudit_Worker(t *testing.T) {
-	//message := lxHelper.M {
+	//message := lxHelper.M{
 	//	"hello": "world",
 	//	"life":  42,
-	//	"embedded": map[string]string{
+	//	"embedded": lxHelper.M{
 	//		"yes": "of course!",
 	//	},
 	//}
 	//
 	//jsonData, err := json.Marshal(message)
 	//if err != nil {
-	//	log.Fatalln(err)
+	//	t.Log(err)
+	//	t.FailNow()
 	//}
 	//
-	//resp, err := http.Post("http://localhost:3000", "application/json", bytes.NewBuffer(jsonData))
+	//client := &http.Client{
+	//	Timeout: time.Second * 10,
+	//}
+	//
+	//req, err := http.NewRequest("POST", "http://localhost:3030", bytes.NewBuffer(jsonData))
 	//if err != nil {
-	//	log.Fatalln(err)
+	//	t.Log(err)
+	//	t.FailNow()
+	//}
+	//req.Header.Set("Content-type", "application/json")
+	//resp, err := client.Do(req)
+	//if err != nil {
+	//	t.Log(err)
+	//	t.FailNow()
 	//}
 	//
-	//t.Log(resp.ContentLength)
-	//t.Log(resp.Header.Get("Content-Type"))
-	//t.Log(resp.Body)
-	//
+	//// Check error
 	//var result lxHelper.M
-	//if resp.ContentLength > 0 && resp.Header.Get("Content-Type") == "application/json; charset=UTF-8" {
+	//if resp.ContentLength > 0 {
 	//	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-	//		log.Fatal(err)
+	//		t.Log(err)
+	//		t.Fail()
 	//	}
 	//}
-
-	//for k,v  := range result {
-	//	log.Println(k,v)
-	//}
-
-	//t.Log(result)
-
-	// Create a Resty Client
-	//client := resty.New()
 	//
-	//var reqErr lxHelper.M
-	//var result lxHelper.M
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second * 30)
-	//defer cancel()
-	//resp, err := client.R().
-	//	SetContext(ctx).
-	//	SetHeader("Content-Type", "application/json").
-	//	//SetAuthToken(workerConfig.auditAuthKey).
-	//	SetBody(message).
-	//	SetError(&reqErr).
-	//	SetResult(&result).
-	//	Post("http://localhost:3000")
-	//
-	//t.Log(err)
-	//t.Log(resp)
-	//t.Log(reqErr)
 	//t.Log(result)
 
 	// get server and close the server when test finishes
-	//server := getTestServer(t, http.StatusOK, "/v1/log")
-	//defer server.Close()
+	server := getTestServer(t, http.StatusOK, "/v1/log")
+	defer server.Close()
 
 	// Global
-	//lxAudit.InitAuditWorker(testClientHost, "http://localhost:3000", testKey, 2)
+	log := lxLog.InitLogger(os.Stderr, "debug", "text")
+	logEntry := log.WithFields(logrus.Fields{
+		"app":  "lxgo audit_test",
+		"func": "worker queue",
+	})
+	lxAudit.InitAuditWorker(testClientHost, "http://localhost:3000", testKey, logEntry, 2)
 
-	//// instance
-	//numberOfJobs := 20
-	//for j := 0; j < numberOfJobs; j++ {
-	//	go func(j int) {
-	//		t.Log("Start Job:", j)
-	//		worker.Queue <- lxAudit.AuditEntry{
-	//			Collection: testCollectionName,
-	//			Action: fmt.Sprintf("delete_%d", j),
-	//			User:   lxHelper.M{"name": fmt.Sprintf("tester_%d", j)},
-	//			Data:   lxHelper.M{"foo": fmt.Sprintf("bar_%d", j)},
-	//		}
-	//	}(j)
-	//}
-	//
-	//t.Log("Wait for jobs:", numberOfJobs)
-	//for c := 0; c < numberOfJobs; c++ {
-	//	<-worker.Err
-	//	<-worker.Done
-	//}
-	//
-	//t.Log("finished")
-	//// cleaning workers
-	//close(worker.Kill)
-	//time.Sleep(2 * time.Second)
+	// instance
+	if !lxAudit.HasAuditWorkerInit() {
+		t.Log("not init worker queue")
+		t.FailNow()
+	}
+	worker := lxAudit.GetWorkerConfig()
+	numberOfJobs := 20
+	for j := 0; j < numberOfJobs; j++ {
+		go func(j int) {
+			t.Log("Start Job:", j)
+			worker.Queue <- lxAudit.AuditEntry{
+				Collection: testCollectionName,
+				Action:     fmt.Sprintf("%s_%d", lxAudit.Update, j),
+				User:       lxHelper.M{"name": fmt.Sprintf("tester_%d", j)},
+				Data:       lxHelper.M{"foo": fmt.Sprintf("bar_%d", j)},
+			}
+		}(j)
+	}
+
+	t.Log("Wait for jobs:", numberOfJobs)
+	for c := 0; c < numberOfJobs; c++ {
+		<-worker.Err
+		<-worker.Done
+	}
+
+	// cleaning workers
+	close(worker.Kill)
 
 	//t.Log("Post")
 	//lxAudit.LogEntry(lxAudit.AuditEntry{
