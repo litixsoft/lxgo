@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	lxHelper "github.com/litixsoft/lxgo/helper"
 	"github.com/sirupsen/logrus"
 	"net/http"
 
@@ -25,28 +24,30 @@ type WorkerConfig struct {
 }
 
 type AuditEntry struct {
-	Collection string
-	Action     string
-	User       interface{}
-	Data       interface{}
+	Host       string      `json:"host"`
+	Collection string      `json:"collection"`
+	Action     string      `json:"action"`
+	User       interface{} `json:"user"`
+	Data       interface{} `json:"data"`
 }
 
 const (
 	Insert         = "insert"
 	Update         = "update"
 	Delete         = "delete"
-	DefaultTimeout = time.Second * 30
+	DefaultTimeout = time.Second * 15
 	PathLogEntry   = "/v1/log"
 	PathLogEntries = "/v1/bulk/log"
 )
 
 var (
-	once                   sync.Once
-	hasInit                bool
-	workerConfig           *WorkerConfig
-	log                    *logrus.Entry
-	ErrQueueAuditEntryType = errors.New("queue must be AuditEntry or []AuditEntry type")
-	ErrByAuditService      = errors.New("audit service response error")
+	once              sync.Once
+	hasInit           bool
+	workerConfig      *WorkerConfig
+	log               *logrus.Entry
+	ErrAuditEntryType = errors.New("must be AuditEntry or []AuditEntry type")
+	ReqAuditHost      string
+	ReqAuditAuthKey   string
 )
 
 // GetAuditWorker, return singleton worker instance
@@ -100,36 +101,36 @@ func HasAuditWorkerInit() bool {
 
 // auditWorker
 func auditWorker() {
-	for true {
-		select {
-		case q := <-workerConfig.Queue:
-			// Convert type of queue
-			switch val := q.(type) {
-			default:
-				log.Error(ErrQueueAuditEntryType)
-				workerConfig.Err <- ErrQueueAuditEntryType
-				workerConfig.Done <- true
-			case AuditEntry:
-				//if err := requestAuditEntry(val); err != nil {
-				//
-				//	workerConfig.Err <- nil
-				//	workerConfig.Done <- true
-				//
-				//}
-				time.Sleep(time.Millisecond * 100)
-				workerConfig.Err <- nil
-				workerConfig.Done <- true
-			case []AuditEntry:
-				log.Debug("doing work with AuditEntries!!", val)
-				time.Sleep(time.Millisecond * 100)
-				workerConfig.Err <- nil
-				workerConfig.Done <- true
-			}
-		case <-workerConfig.Kill:
-			log.Warn("shutdown worker with kill signal")
-			return
-		}
-	}
+	//for true {
+	//	select {
+	//	case q := <-workerConfig.Queue:
+	//		// Convert type of queue
+	//		switch val := q.(type) {
+	//		default:
+	//			log.Error(ErrQueueAuditEntryType)
+	//			workerConfig.Err <- ErrQueueAuditEntryType
+	//			workerConfig.Done <- true
+	//		case AuditEntry:
+	//			//if err := requestAuditEntry(val); err != nil {
+	//			//
+	//			//	workerConfig.Err <- nil
+	//			//	workerConfig.Done <- true
+	//			//
+	//			//}
+	//			time.Sleep(time.Millisecond * 100)
+	//			workerConfig.Err <- nil
+	//			workerConfig.Done <- true
+	//		case []AuditEntry:
+	//			log.Debug("doing work with AuditEntries!!", val)
+	//			time.Sleep(time.Millisecond * 100)
+	//			workerConfig.Err <- nil
+	//			workerConfig.Done <- true
+	//		}
+	//	case <-workerConfig.Kill:
+	//		log.Warn("shutdown worker with kill signal")
+	//		return
+	//	}
+	//}
 }
 
 //
@@ -235,10 +236,53 @@ func auditWorker() {
 ///////////////////////////////////
 
 // Log, send post request to audit service
-func requestAuditEntry(entry AuditEntry, timeout ...time.Duration) error {
+func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
 		to = timeout[0]
+	}
+
+	// Request
+	var req *http.Request
+
+	switch val := auditEntries.(type) {
+	default:
+		// Wrong type return with error
+		return ErrAuditEntryType
+
+	case []AuditEntry:
+		// Add host to entries
+		for i := range val {
+			val[i].Host = clientHost
+		}
+
+		// Convert entries to json
+		jsonBody, err := json.Marshal(val)
+		if err != nil {
+			return err
+		}
+
+		// Make request
+		req, err = http.NewRequest("POST", auditHost+PathLogEntries, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			return err
+		}
+
+	case AuditEntry:
+		// Add host to entry
+		val.Host = clientHost
+
+		// Convert entry to json
+		jsonBody, err := json.Marshal(val)
+		if err != nil {
+			return err
+		}
+
+		// Make request
+		req, err = http.NewRequest("POST", auditHost+PathLogEntry, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			return err
+		}
 	}
 
 	// Set client with timeout
@@ -247,26 +291,26 @@ func requestAuditEntry(entry AuditEntry, timeout ...time.Duration) error {
 	}
 
 	// Set entry for request
-	jsonBody, err := json.Marshal(lxHelper.M{
-		"host":       workerConfig.clientHost,
-		"collection": entry.Collection,
-		"action":     entry.Action,
-		"user":       entry.User,
-		"data":       entry.Data,
-	})
-	if err != nil {
-		return err
-	}
+	//jsonBody, err := json.Marshal(lxHelper.M{
+	//	"host":       workerConfig.clientHost,
+	//	"collection": entry.Collection,
+	//	"action":     entry.Action,
+	//	"user":       entry.User,
+	//	"data":       entry.Data,
+	//})
+	//if err != nil {
+	//	return err
+	//}
 
 	// Set request
-	req, err := http.NewRequest("POST", workerConfig.auditHost, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return err
-	}
+	//req, err := http.NewRequest("POST", workerConfig.auditHost + PathLogEntries, bytes.NewBuffer(jsonBody))
+	//if err != nil {
+	//	return err
+	//}
 
 	// Set header for request
 	req.Header.Set("Content-type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+workerConfig.auditAuthKey)
+	req.Header.Set("Authorization", "Bearer "+auditAuthKey)
 
 	// Start request
 	resp, err := client.Do(req)
@@ -275,7 +319,7 @@ func requestAuditEntry(entry AuditEntry, timeout ...time.Duration) error {
 	}
 
 	// Check error
-	var result lxHelper.M
+	var result interface{}
 	if resp.ContentLength > 0 {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			return err
