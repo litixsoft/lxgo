@@ -1,9 +1,19 @@
 package lxAudit_test
 
 import (
+	"encoding/json"
 	lxAudit "github.com/litixsoft/lxgo/audit"
 	lxHelper "github.com/litixsoft/lxgo/helper"
+	lxLog "github.com/litixsoft/lxgo/log"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 	//"time"
 )
 
@@ -46,97 +56,182 @@ var (
 )
 
 // getTestServer with return status
-//func getTestServer(t *testing.T, rtStatus int, testPath string) *httptest.Server {
-//	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-//		its := assert.New(t)
-//		// Test request parameters
-//		its.Equal(req.URL.String(), testPath)
-//		body, err := ioutil.ReadAll(req.Body)
-//		its.NoError(err)
-//
-//		// convert body for check
-//		var jsonBody interface{}
-//		its.NoError(json.Unmarshal(body, &jsonBody))
-//
-//		// Check actual request
-//		checkFunc := func(expected lxHelper.M, actual map[string]interface{}) {
-//			for k := range expected {
-//				if k != "user" && k != "data" {
-//					its.Equal(expected[k], actual[k])
-//				}
-//				if k == "user" {
-//					for k2, v2 := range actual[k].(map[string]interface{}) {
-//						its.Equal(expected[k].(lxHelper.M)[k2], v2)
-//					}
-//				}
-//				if k == "data" {
-//					for k2, v2 := range actual[k].(map[string]interface{}) {
-//						its.Equal(expected[k].(lxHelper.M)[k2], v2)
-//					}
-//				}
-//			}
-//		}
-//
-//		// Check jsonBody and cast request for check
-//		switch jBody := jsonBody.(type) {
-//		case map[string]interface{}:
-//			// Check single entry
-//			checkFunc(expectedEntry, jBody)
-//		case []interface{}:
-//			// Check collection of entries
-//			for i, exp := range expectedEntries {
-//				expected, ok := exp.(lxHelper.M)
-//				its.True(ok)
-//
-//				actual, ok := jBody[i].(map[string]interface{})
-//				its.True(ok)
-//
-//				checkFunc(expected, actual)
-//			}
-//		}
-//
-//		// Send http.StatusNoContent for successfully audit
-//		rw.WriteHeader(rtStatus)
-//	}))
-//}
+func getTestServer(t *testing.T, rtStatus int, testPath string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		its := assert.New(t)
+		// Test request parameters
+		its.Equal(req.URL.String(), testPath)
+		body, err := ioutil.ReadAll(req.Body)
+		its.NoError(err)
+
+		// convert body for check
+		var jsonBody interface{}
+		its.NoError(json.Unmarshal(body, &jsonBody))
+
+		// Check actual request
+		checkFunc := func(expected lxHelper.M, actual map[string]interface{}) {
+			for k := range expected {
+				if k != "user" && k != "data" {
+					its.Equal(expected[k], actual[k])
+				}
+				if k == "user" {
+					for k2, v2 := range actual[k].(map[string]interface{}) {
+						its.Equal(expected[k].(lxHelper.M)[k2], v2)
+					}
+				}
+				if k == "data" {
+					for k2, v2 := range actual[k].(map[string]interface{}) {
+						its.Equal(expected[k].(lxHelper.M)[k2], v2)
+					}
+				}
+			}
+		}
+
+		// Check jsonBody and cast request for check
+		switch jBody := jsonBody.(type) {
+		case map[string]interface{}:
+			// Check single entry
+			checkFunc(expectedEntry, jBody)
+		case []interface{}:
+			// Check collection of entries
+			for i, exp := range expectedEntries {
+				actual, ok := jBody[i].(map[string]interface{})
+				its.True(ok)
+				checkFunc(exp, actual)
+			}
+		}
+
+		switch rtStatus {
+		default:
+			// Send http.StatusNoContent with 200 for successfully audit
+			rw.WriteHeader(http.StatusOK)
+		case http.StatusInternalServerError:
+			// http.StatusInternalServerError with content
+			rw.Header().Set("Content-Type", "application/json")
+			rw.WriteHeader(http.StatusInternalServerError)
+
+			data := lxHelper.M{"message": "ganz schlimm"}
+			jsonData, err := json.Marshal(data)
+			its.NoError(err)
+
+			_, err = io.WriteString(rw, string(jsonData))
+			its.NoError(err)
+		case http.StatusUnprocessableEntity:
+			rw.Header().Set("Content-Type", "application/json")
+			rw.WriteHeader(http.StatusUnprocessableEntity)
+
+			data := []lxHelper.M{
+				{"message1": "ganz schlimm1"},
+				{"message2": "ganz schlimm2"},
+			}
+			jsonData, err := json.Marshal(data)
+			its.NoError(err)
+
+			_, err = io.WriteString(rw, string(jsonData))
+			its.NoError(err)
+		}
+	}))
+}
 
 func TestRequestAudit(t *testing.T) {
-	/*	its := assert.New(t)
+	its := assert.New(t)
 
-		auditEntries := []lxAudit.AuditEntry{
-			{
-				Collection: testCollectionName,
-				Action:     lxAudit.Insert,
-				User:       testUser,
-				Data:       testData,
-			},
-			{
-				Collection: testCollectionName,
-				Action:     lxAudit.Update,
-				User:       testUser,
-				Data:       testData,
-			},
-			{
-				Collection: testCollectionName,
-				Action:     lxAudit.Delete,
-				User:       testUser,
-				Data:       testData,
-			},
-		}
-		auditEntry := lxAudit.AuditEntry{
+	auditEntries := []lxAudit.AuditEntry{
+		{
+			Collection: testCollectionName,
+			Action:     lxAudit.Insert,
+			User:       testUser,
+			Data:       testData,
+		},
+		{
 			Collection: testCollectionName,
 			Action:     lxAudit.Update,
 			User:       testUser,
 			Data:       testData,
-		}
+		},
+		{
+			Collection: testCollectionName,
+			Action:     lxAudit.Delete,
+			User:       testUser,
+			Data:       testData,
+		},
+	}
+	//auditEntry := lxAudit.AuditEntry{
+	//	Collection: testCollectionName,
+	//	Action:     lxAudit.Update,
+	//	User:       testUser,
+	//	Data:       testData,
+	//}
 
-		clientHost := "test-client"
-		auditHost := "http://localhost:3000"
-		auditAuthKey := "d6a34742-0a91-4fa9-81c3-934c76f72634"
+	t.Run("auditEntries http.StatusOK", func(t *testing.T) {
+		// get server and close the server when test finishes
+		server := getTestServer(t, http.StatusOK, "/v1/bulk/log")
+		defer server.Close()
 
-		its.NoError(lxAudit.RequestAudit(auditEntries, clientHost, auditHost, auditAuthKey))
-		its.NoError(lxAudit.RequestAudit(auditEntry, clientHost, auditHost, auditAuthKey))*/
+		// Test request entry and check error
+		its.NoError(lxAudit.RequestAudit(auditEntries, testClientHost, server.URL, testKey))
+	})
+	t.Run("auditEntries http.StatusInternalServerError", func(t *testing.T) {
+		// get server and close the server when test finishes
+		server := getTestServer(t, http.StatusInternalServerError, "/v1/bulk/log")
+		defer server.Close()
 
+		// Test request entries and check error
+		err := lxAudit.RequestAudit(auditEntries, testClientHost, server.URL, testKey)
+		its.Error(err)
+		//its.IsType(&lxAudit.AuditLogEntryError{}, err)
+		//its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
+	})
+	t.Run("auditEntries http.StatusUnprocessableEntity", func(t *testing.T) {
+		// get server and close the server when test finishes
+		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/bulk/log")
+		defer server.Close()
+
+		// Test request entries and check error
+		err := lxAudit.RequestAudit(auditEntries, testClientHost, server.URL, testKey)
+		its.Error(err)
+		//its.IsType(&lxAudit.AuditLogEntryError{}, err)
+		//its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
+	})
+}
+
+func TestTheWest(t *testing.T) {
+	// logger init
+	lxLog.InitLogger(
+		os.Stdout,
+		"debug",
+		"text")
+
+	lxAudit.InitJobQueueConfig(
+		testClientHost,
+		"http://localhost:3030",
+		testKey,
+		lxLog.GetLogger().WithFields(logrus.Fields{"fun": "TestTheWest"}))
+
+	job := lxAudit.GetJobQueue()
+	lxAudit.RunWorker()
+	//
+	t.Logf("%T", job.Queue)
+	//job.Queue <- lxHelper.M{"message":"HelloWorld"}
+
+	//numOfJobs := 20
+	//for i:= 0; i< numOfJobs; i++ {
+	//	go func(num int) {
+	//		job.Queue <- lxHelper.M{"message":"HelloWorld"}
+	//	}(i)
+	//}
+
+	time.Sleep(time.Second * 10)
+
+	//auditEntry := lxAudit.AuditEntry{
+	//	Collection: testCollectionName,
+	//	Action:     lxAudit.Update,
+	//	User:       testUser,
+	//	Data:       testData,
+	//}
+	//
+	//err := lxAudit.RequestAudit(auditEntry,testClientHost, "http://localhost:3030", "")
+	//t.Log(err)
 }
 
 //func TestAudit_LogEntry(t *testing.T) {

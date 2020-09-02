@@ -4,23 +4,28 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/sirupsen/logrus"
+	"sync"
+
+	//"errors"
+	"fmt"
+	//"github.com/sirupsen/logrus"
 	"net/http"
 
 	//"net/http"
-	"sync"
+	//"sync"
 	"time"
 )
 
-type WorkerConfig struct {
-	Queue        chan interface{}
-	Done         chan bool
-	Err          chan error
-	Kill         chan bool
-	clientHost   string
-	auditHost    string
-	auditAuthKey string
+type JobQueue struct {
+	Queue chan interface{}
+	Kill  chan bool
+}
+
+type JobQueueConfig struct {
+	ClientHost       string
+	AuditHost        string
+	AuditHostAuthKey string
 }
 
 type AuditEntry struct {
@@ -42,13 +47,20 @@ const (
 
 var (
 	once              sync.Once
-	hasInit           bool
-	workerConfig      *WorkerConfig
+	jobQueue          *JobQueue
+	jobQueueConfig    *JobQueueConfig
 	log               *logrus.Entry
 	ErrAuditEntryType = errors.New("must be AuditEntry or []AuditEntry type")
-	ReqAuditHost      string
-	ReqAuditAuthKey   string
 )
+
+func InitJobQueueConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry) {
+	jobQueueConfig = &JobQueueConfig{
+		ClientHost:       clientHost,
+		AuditHost:        auditHost,
+		AuditHostAuthKey: auditHostAuthKey,
+	}
+	log = logEntry
+}
 
 // GetAuditWorker, return singleton worker instance
 // Usage:
@@ -59,78 +71,90 @@ var (
 //		"number":                100,
 //		lxLog.StackdriverErrKey: lxLog.StackdriverErrorValue,
 //	}).Error("Error without Stack and stackdriver error event!")
-func GetWorkerConfig() *WorkerConfig {
+func GetJobQueue() *JobQueue {
+	if jobQueueConfig == nil {
+		panic(errors.New("jobQueueConfig is nil, InitJobQueueConfig before GetJobQueue"))
+	}
 	once.Do(func() {
-		workerConfig = &WorkerConfig{
+		jobQueue = &JobQueue{
 			Queue: make(chan interface{}),
-			Done:  make(chan bool),
-			Err:   make(chan error),
 			Kill:  make(chan bool),
 		}
 	})
-	return workerConfig
+	return jobQueue
 }
 
 // InitAuditWorker
-func InitAuditWorker(clientHost, auditHost, auditAuthKey string, logEntry *logrus.Entry, workers ...int) {
-	awc := GetWorkerConfig()
-	awc.clientHost = clientHost
-	awc.auditHost = auditHost
-	awc.auditAuthKey = auditAuthKey
-	log = logEntry
+//func InitAuditWorker(clientHost, auditHost, auditAuthKey string, logEntry *logrus.Entry, workers ...int) {
+//	awc := GetWorkerConfig()
+//	awc.clientHost = clientHost
+//	awc.auditHost = auditHost
+//	awc.auditAuthKey = auditAuthKey
+//	log = logEntry
+//
+//	// When workers not set,
+//	// then default value is 1
+//	worker := 1
+//	if len(workers) > 0 {
+//		// workers is setting
+//		worker = workers[0]
+//	}
+//
+//	// setup worker
+//	for i := 0; i < worker; i++ {
+//		go auditWorker()
+//	}
+//
+//	hasInit = true
+//}
 
-	// When workers not set,
-	// then default value is 1
-	worker := 1
-	if len(workers) > 0 {
-		// workers is setting
-		worker = workers[0]
-	}
-
-	// setup worker
-	for i := 0; i < worker; i++ {
-		go auditWorker()
-	}
-
-	hasInit = true
-}
-
-func HasAuditWorkerInit() bool {
-	return hasInit
-}
+//func HasAuditWorkerInit() bool {
+//	return hasInit
+//}
 
 // auditWorker
-func auditWorker() {
-	//for true {
-	//	select {
-	//	case q := <-workerConfig.Queue:
-	//		// Convert type of queue
-	//		switch val := q.(type) {
-	//		default:
-	//			log.Error(ErrQueueAuditEntryType)
-	//			workerConfig.Err <- ErrQueueAuditEntryType
-	//			workerConfig.Done <- true
-	//		case AuditEntry:
-	//			//if err := requestAuditEntry(val); err != nil {
-	//			//
-	//			//	workerConfig.Err <- nil
-	//			//	workerConfig.Done <- true
-	//			//
-	//			//}
-	//			time.Sleep(time.Millisecond * 100)
-	//			workerConfig.Err <- nil
-	//			workerConfig.Done <- true
-	//		case []AuditEntry:
-	//			log.Debug("doing work with AuditEntries!!", val)
-	//			time.Sleep(time.Millisecond * 100)
-	//			workerConfig.Err <- nil
-	//			workerConfig.Done <- true
-	//		}
-	//	case <-workerConfig.Kill:
-	//		log.Warn("shutdown worker with kill signal")
-	//		return
-	//	}
-	//}
+func RunWorker(testArgs ...interface{}) {
+	go func() {
+		for true {
+			select {
+			case j := <-jobQueue.Queue:
+				log.Debug("start job", j)
+				log.Debugf("job type:%T\n", j)
+				time.Sleep(time.Millisecond * 500)
+			case <-jobQueue.Kill:
+				log.Debug("shutdown worker with kill signal")
+				return
+
+				//	case q := <-workerConfig.Queue:
+				//		// Convert type of queue
+				//		switch val := q.(type) {
+				//		default:
+				//			log.Error(ErrQueueAuditEntryType)
+				//			workerConfig.Err <- ErrQueueAuditEntryType
+				//			workerConfig.Done <- true
+				//		case AuditEntry:
+				//			//if err := requestAuditEntry(val); err != nil {
+				//			//
+				//			//	workerConfig.Err <- nil
+				//			//	workerConfig.Done <- true
+				//			//
+				//			//}
+				//			time.Sleep(time.Millisecond * 100)
+				//			workerConfig.Err <- nil
+				//			workerConfig.Done <- true
+				//		case []AuditEntry:
+				//			log.Debug("doing work with AuditEntries!!", val)
+				//			time.Sleep(time.Millisecond * 100)
+				//			workerConfig.Err <- nil
+				//			workerConfig.Done <- true
+				//		}
+				//	case <-workerConfig.Kill:
+				//		log.Warn("shutdown worker with kill signal")
+				//		return
+			}
+		}
+	}()
+
 }
 
 //
@@ -290,24 +314,6 @@ func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey 
 		Timeout: to,
 	}
 
-	// Set entry for request
-	//jsonBody, err := json.Marshal(lxHelper.M{
-	//	"host":       workerConfig.clientHost,
-	//	"collection": entry.Collection,
-	//	"action":     entry.Action,
-	//	"user":       entry.User,
-	//	"data":       entry.Data,
-	//})
-	//if err != nil {
-	//	return err
-	//}
-
-	// Set request
-	//req, err := http.NewRequest("POST", workerConfig.auditHost + PathLogEntries, bytes.NewBuffer(jsonBody))
-	//if err != nil {
-	//	return err
-	//}
-
 	// Set header for request
 	req.Header.Set("Content-type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+auditAuthKey)
@@ -320,78 +326,17 @@ func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey 
 
 	// Check error
 	var result interface{}
-	if resp.ContentLength > 0 {
+	if resp.StatusCode != http.StatusOK && resp.ContentLength > 0 {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			return err
 		}
 
-		return fmt.Errorf("status: %d error: %v", resp.StatusCode, result)
+		return fmt.Errorf("status: %d result: %v", resp.StatusCode, result)
 	}
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("status must be 200, actual: %d", resp.StatusCode)
 	}
-
-	//t.Log(result)
-
-	// Header
-	//header := http.Header{}
-	//header.Add("Content-Type", "application/json")
-	//header.Add("Authorization", "Bearer "+workerConfig.auditAuthKey)
-
-	// Uri
-	//uri := workerConfig.auditHost + PathLogEntry
-
-	// Create a Resty Client
-	//client := resty.New()
-	//
-	//ctx, cancel := context.WithTimeout(context.Background(), to)
-	//defer cancel()
-	//resp, err := client.R().
-	//	SetContext(ctx).
-	//	SetHeader("Content-Type", "application/json").
-	//	SetAuthToken(workerConfig.auditAuthKey).
-	//	SetBody(lxHelper.M{
-	//		"host":       workerConfig.clientHost,
-	//		"collection": entry.Collection,
-	//		"action":     entry.Action,
-	//		//"user":       entry.User,
-	//		"data": entry.Data,
-	//	}).
-	//	Post(workerConfig.auditHost + PathLogEntry)
-	//
-	//if resp.StatusCode() != http.StatusOK {
-	//
-	//}
-	//
-	//log.Println("err:", err)
-	//log.Println(resp.Status())
-	//log.Println(resp.StatusCode())
-	//log.Println(string(resp.Body()))
-	//
-	//log.Println("resp:", resp)
-	//log.Printf("%T", resp)
-
-	//// Request
-	//resp, err := lxHelper.Request(header, body, uri, "POST", to)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// Check status
-	//if resp.StatusCode != http.StatusOK {
-	//	var ret bson.M
-	//	if err := lxHelper.ReadResponseBody(resp, &ret); err != nil {
-	//		return err
-	//	}
-	//
-	//	// Check message exits
-	//	if msg, ok := ret["message"]; ok {
-	//		return NewAuditLogEntryError(resp.StatusCode, msg)
-	//	}
-	//
-	//	return NewAuditLogEntryError(resp.StatusCode)
-	//}
 
 	return nil
 }
