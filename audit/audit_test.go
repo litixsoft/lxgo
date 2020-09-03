@@ -202,26 +202,32 @@ func TestTheWest(t *testing.T) {
 		"debug",
 		"text")
 
-	lxAudit.InitJobQueueConfig(
+	lxAudit.InitJobConfig(
 		testClientHost,
 		"http://localhost:3030",
 		testKey,
 		lxLog.GetLogger().WithFields(logrus.Fields{"fun": "TestTheWest"}))
 
-	job := lxAudit.GetJobQueue()
-	lxAudit.RunWorker()
-	//
-	t.Logf("%T", job.Queue)
+	lxAudit.StartWorker()
+
 	//job.Queue <- lxHelper.M{"message":"HelloWorld"}
 
-	//numOfJobs := 20
-	//for i:= 0; i< numOfJobs; i++ {
-	//	go func(num int) {
-	//		job.Queue <- lxHelper.M{"message":"HelloWorld"}
-	//	}(i)
-	//}
+	numOfJobs := 20
+	c := lxAudit.GetChanConfig()
+	for i := 0; i < numOfJobs; i++ {
+		go func(num int) {
+			c.JobChan <- lxAudit.AuditEntry{
+				Collection: testCollectionName,
+				Action:     lxAudit.Delete,
+				User:       testUser,
+				Data:       testData,
+			}
+		}(i)
+	}
 
 	time.Sleep(time.Second * 10)
+	c.KillChan <- true
+	time.Sleep(time.Second * 2)
 
 	//auditEntry := lxAudit.AuditEntry{
 	//	Collection: testCollectionName,

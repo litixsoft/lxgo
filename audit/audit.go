@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/sirupsen/logrus"
 	"sync"
+
+	"github.com/sirupsen/logrus"
 
 	//"errors"
 	"fmt"
@@ -17,15 +18,15 @@ import (
 	"time"
 )
 
-type JobQueue struct {
-	Queue chan interface{}
-	Kill  chan bool
+type ChanConfig struct {
+	JobChan  chan interface{}
+	KillChan chan bool
 }
 
-type JobQueueConfig struct {
-	ClientHost       string
-	AuditHost        string
-	AuditHostAuthKey string
+type jobConfigType struct {
+	clientHost       string
+	auditHost        string
+	auditHostAuthKey string
 }
 
 type AuditEntry struct {
@@ -47,41 +48,36 @@ const (
 
 var (
 	once              sync.Once
-	jobQueue          *JobQueue
-	jobQueueConfig    *JobQueueConfig
+	chanConfig        *ChanConfig
+	jobConfig         *jobConfigType
 	log               *logrus.Entry
 	ErrAuditEntryType = errors.New("must be AuditEntry or []AuditEntry type")
 )
 
-func InitJobQueueConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry) {
-	jobQueueConfig = &JobQueueConfig{
-		ClientHost:       clientHost,
-		AuditHost:        auditHost,
-		AuditHostAuthKey: auditHostAuthKey,
+func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry) {
+	jobConfig = &jobConfigType{
+		clientHost:       clientHost,
+		auditHost:        auditHost,
+		auditHostAuthKey: auditHostAuthKey,
 	}
 	log = logEntry
 }
 
-// GetAuditWorker, return singleton worker instance
+// GetChanConfig return singleton channel config instance
 // Usage:
-//	log := lxLog.GetLogger()
-//
-// 	log.WithFields(logrus.Fields{
-//		"omg":                   true,
-//		"number":                100,
-//		lxLog.StackdriverErrKey: lxLog.StackdriverErrorValue,
-//	}).Error("Error without Stack and stackdriver error event!")
-func GetJobQueue() *JobQueue {
-	if jobQueueConfig == nil {
-		panic(errors.New("jobQueueConfig is nil, InitJobQueueConfig before GetJobQueue"))
+//	c := lxAudit.GetChanConfig()
+// 	c.JobChan <- interface{}
+func GetChanConfig() *ChanConfig {
+	if jobConfig == nil {
+		panic(errors.New("jobConfig is nil, InitJobConfig before GetChanConfig"))
 	}
 	once.Do(func() {
-		jobQueue = &JobQueue{
-			Queue: make(chan interface{}),
-			Kill:  make(chan bool),
+		chanConfig = &ChanConfig{
+			JobChan:  make(chan interface{}),
+			KillChan: make(chan bool),
 		}
 	})
-	return jobQueue
+	return chanConfig
 }
 
 // InitAuditWorker
@@ -112,16 +108,16 @@ func GetJobQueue() *JobQueue {
 //	return hasInit
 //}
 
-// auditWorker
-func RunWorker(testArgs ...interface{}) {
-	go func() {
+// StartWorker starts a worker with singleton channel config
+func StartWorker(testArgs ...interface{}) {
+	go func(c *ChanConfig) {
 		for true {
 			select {
-			case j := <-jobQueue.Queue:
+			case j := <-c.JobChan:
 				log.Debug("start job", j)
 				log.Debugf("job type:%T\n", j)
 				time.Sleep(time.Millisecond * 500)
-			case <-jobQueue.Kill:
+			case <-c.KillChan:
 				log.Debug("shutdown worker with kill signal")
 				return
 
@@ -153,8 +149,7 @@ func RunWorker(testArgs ...interface{}) {
 				//		return
 			}
 		}
-	}()
-
+	}(GetChanConfig())
 }
 
 //
