@@ -348,6 +348,37 @@ func (mr *MockIBaseRepoMockRecorder) GetRepoName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRepoName", reflect.TypeOf((*MockIBaseRepo)(nil).GetRepoName))
 }
 
+// SetLocale mocks base method
+func (m *MockIBaseRepo) SetLocale(code string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetLocale", code)
+}
+
+// SetLocale indicates an expected call of SetLocale
+func (mr *MockIBaseRepoMockRecorder) SetLocale(code interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLocale", reflect.TypeOf((*MockIBaseRepo)(nil).SetLocale), code)
+}
+
+// Aggregate mocks base method
+func (m *MockIBaseRepo) Aggregate(pipeline, result interface{}, args ...interface{}) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{pipeline, result}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Aggregate", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Aggregate indicates an expected call of Aggregate
+func (mr *MockIBaseRepoMockRecorder) Aggregate(pipeline, result interface{}, args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{pipeline, result}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregate", reflect.TypeOf((*MockIBaseRepo)(nil).Aggregate), varargs...)
+}
+
 // MockIBaseRepoAudit is a mock of IBaseRepoAudit interface
 type MockIBaseRepoAudit struct {
 	ctrl     *gomock.Controller
@@ -407,23 +438,4 @@ func (mr *MockIBaseRepoAuditMockRecorder) LogEntries(entries interface{}, timeou
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{entries}, timeout...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntries", reflect.TypeOf((*MockIBaseRepoAudit)(nil).LogEntries), varargs...)
-}
-
-// Aggregate mocks base method
-func (m *MockIBaseRepo) Aggregate(pipeline interface{}, result interface{}, args ...interface{}) error {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{pipeline, result}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Aggregate", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Aggregate indicates an expected call of Find
-func (mr *MockIBaseRepoMockRecorder) Aggregate(pipeline interface{}, result interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{pipeline, result}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregate", reflect.TypeOf((*MockIBaseRepo)(nil).Aggregate), varargs...)
 }
