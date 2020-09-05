@@ -52,18 +52,32 @@ var (
 	jobConfig         *jobConfigType
 	log               *logrus.Entry
 	ErrAuditEntryType = errors.New("must be AuditEntry or []AuditEntry type")
+	throttle          = time.Millisecond * 50 // Default 50 milliseconds 20 per second
 )
 
-func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry) {
+// InitJobConfig set the global vars for all jobs
+// Example:
+// lxAudit.InitJobConfig(
+//		testClientHost,
+//		"http://localhost:3000",
+//		"c7a34742-0a91-5fb9-81c3-934c76f72436",
+//		lxLog.GetLogger().WithFields(logrus.Fields{"client": "TestTheWest"}))
+func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry, workerThrottle ...time.Duration) {
 	jobConfig = &jobConfigType{
 		clientHost:       clientHost,
 		auditHost:        auditHost,
 		auditHostAuthKey: auditHostAuthKey,
 	}
 	log = logEntry
+
+	// When workerThrottle set overwrite default
+	if len(workerThrottle) > 0 {
+		throttle = workerThrottle[0]
+	}
 }
 
 // GetChanConfig return singleton channel config instance
+// Before you can start that, an InitJobConfig must be made
 // Usage:
 //	c := lxAudit.GetChanConfig()
 // 	c.JobChan <- interface{}
@@ -80,76 +94,56 @@ func GetChanConfig() *ChanConfig {
 	return chanConfig
 }
 
-// InitAuditWorker
-//func InitAuditWorker(clientHost, auditHost, auditAuthKey string, logEntry *logrus.Entry, workers ...int) {
-//	awc := GetWorkerConfig()
-//	awc.clientHost = clientHost
-//	awc.auditHost = auditHost
-//	awc.auditAuthKey = auditAuthKey
-//	log = logEntry
-//
-//	// When workers not set,
-//	// then default value is 1
-//	worker := 1
-//	if len(workers) > 0 {
-//		// workers is setting
-//		worker = workers[0]
-//	}
-//
-//	// setup worker
-//	for i := 0; i < worker; i++ {
-//		go auditWorker()
-//	}
-//
-//	hasInit = true
-//}
+// StartWorker starts a worker with singleton channel config.
+// Before you can start that, an InitJobConfig must be made
+// Example:
+// lxAudit.StartWorker()
+// or for testing send a chanErr
+// lxAudit.StartWorker(chanErr)
+func StartWorker(chanErr ...chan error) {
+	// Optional param chan error for testing
+	// By many params use latest param
+	var _chanErr chan error
+	for _, v := range chanErr {
+		_chanErr = v
+	}
 
-//func HasAuditWorkerInit() bool {
-//	return hasInit
-//}
+	// Get singleton chan config
+	cc := GetChanConfig()
+	log.Info("start lxAudit worker")
 
-// StartWorker starts a worker with singleton channel config
-func StartWorker(testArgs ...interface{}) {
-	go func(c *ChanConfig) {
+	// go func for worker
+	go func(cc *ChanConfig, _chanErr chan error) {
 		for true {
 			select {
-			case j := <-c.JobChan:
-				log.Debug("start job", j)
-				log.Debugf("job type:%T\n", j)
-				time.Sleep(time.Millisecond * 500)
-			case <-c.KillChan:
-				log.Debug("shutdown worker with kill signal")
+			case j := <-cc.JobChan:
+				// send the entries or entry to audit host
+				err := RequestAudit(j, jobConfig.clientHost, jobConfig.auditHost, jobConfig.auditHostAuthKey)
+				if err != nil {
+					// log error for manual insert
+					jsonJob, jsonErr := json.Marshal(j)
+					ctxLog := log.WithField("func", "lxAudit.StartWorker")
+					if jsonErr != nil {
+						// error by convert job to json print in raw
+						ctxLog.WithField("job", j).Error("error by RequestAudit can't convert job to json")
+					} else {
+						// log error as json for manual insert
+						log.WithField("job", jsonJob).Error("error by RequestAudit, can't send entries")
+					}
+				}
+				// stop before end job
+				time.Sleep(throttle)
+				// chk err and send to channel
+				// important: caller has to wait for the signal
+				if _chanErr != nil {
+					_chanErr <- err
+				}
+			case <-cc.KillChan:
+				log.Info("shutdown worker with kill signal")
 				return
-
-				//	case q := <-workerConfig.Queue:
-				//		// Convert type of queue
-				//		switch val := q.(type) {
-				//		default:
-				//			log.Error(ErrQueueAuditEntryType)
-				//			workerConfig.Err <- ErrQueueAuditEntryType
-				//			workerConfig.Done <- true
-				//		case AuditEntry:
-				//			//if err := requestAuditEntry(val); err != nil {
-				//			//
-				//			//	workerConfig.Err <- nil
-				//			//	workerConfig.Done <- true
-				//			//
-				//			//}
-				//			time.Sleep(time.Millisecond * 100)
-				//			workerConfig.Err <- nil
-				//			workerConfig.Done <- true
-				//		case []AuditEntry:
-				//			log.Debug("doing work with AuditEntries!!", val)
-				//			time.Sleep(time.Millisecond * 100)
-				//			workerConfig.Err <- nil
-				//			workerConfig.Done <- true
-				//		}
-				//	case <-workerConfig.Kill:
-				//		log.Warn("shutdown worker with kill signal")
-				//		return
 			}
 		}
-	}(GetChanConfig())
+	}(cc, _chanErr)
 }
 
 //

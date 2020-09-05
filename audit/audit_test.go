@@ -4,16 +4,12 @@ import (
 	"encoding/json"
 	lxAudit "github.com/litixsoft/lxgo/audit"
 	lxHelper "github.com/litixsoft/lxgo/helper"
-	lxLog "github.com/litixsoft/lxgo/log"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
-	"time"
 	//"time"
 )
 
@@ -196,48 +192,60 @@ func TestRequestAudit(t *testing.T) {
 }
 
 func TestTheWest(t *testing.T) {
-	// logger init
-	lxLog.InitLogger(
-		os.Stdout,
-		"debug",
-		"text")
-
-	lxAudit.InitJobConfig(
-		testClientHost,
-		"http://localhost:3030",
-		testKey,
-		lxLog.GetLogger().WithFields(logrus.Fields{"fun": "TestTheWest"}))
-
-	lxAudit.StartWorker()
-
-	//job.Queue <- lxHelper.M{"message":"HelloWorld"}
-
-	numOfJobs := 20
-	c := lxAudit.GetChanConfig()
-	for i := 0; i < numOfJobs; i++ {
-		go func(num int) {
-			c.JobChan <- lxAudit.AuditEntry{
-				Collection: testCollectionName,
-				Action:     lxAudit.Delete,
-				User:       testUser,
-				Data:       testData,
-			}
-		}(i)
-	}
-
-	time.Sleep(time.Second * 10)
-	c.KillChan <- true
-	time.Sleep(time.Second * 2)
-
-	//auditEntry := lxAudit.AuditEntry{
-	//	Collection: testCollectionName,
-	//	Action:     lxAudit.Update,
-	//	User:       testUser,
-	//	Data:       testData,
+	//auditEntries := []lxAudit.AuditEntry{
+	//	{
+	//		Collection: testCollectionName,
+	//		Action:     lxAudit.Insert,
+	//		User:       testUser,
+	//		Data:       testData,
+	//	},
+	//	{
+	//		Collection: testCollectionName,
+	//		Action:     lxAudit.Update,
+	//		User:       testUser,
+	//		Data:       testData,
+	//	},
+	//	{
+	//		Collection: testCollectionName,
+	//		Action:     lxAudit.Delete,
+	//		User:       testUser,
+	//		Data:       testData,
+	//	},
 	//}
 	//
-	//err := lxAudit.RequestAudit(auditEntry,testClientHost, "http://localhost:3030", "")
-	//t.Log(err)
+	//// Global
+	//lxLog.InitLogger(
+	//	os.Stdout,
+	//	"debug",
+	//	"text")
+	//
+	//lxAudit.InitJobConfig(
+	//	testClientHost,
+	//	"http://localhost:3000",
+	//	"d6a34742-0a91-4fa9-81c3-934c76f72634",
+	//	lxLog.GetLogger().WithFields(logrus.Fields{"client": "TestTheWest"}))
+	//
+	//chanErr := make(chan error)
+	//lxAudit.StartWorker(chanErr)
+	//
+	//// local
+	//numOfJobs := 1
+	//t.Log("Start jobs:", numOfJobs)
+	//cc := lxAudit.GetChanConfig()
+	//for i := 0; i < numOfJobs; i++ {
+	//	go func() {
+	//		cc.JobChan <- auditEntries
+	//	}()
+	//}
+	//
+	//t.Log("Wait for jobs:", numOfJobs)
+	//for c := 0; c < numOfJobs; c++ {
+	//	<-chanErr
+	//}
+	//
+	////time.Sleep(time.Second * 15)
+	//cc.KillChan <- true
+	//time.Sleep(time.Second * 1)
 }
 
 //func TestAudit_LogEntry(t *testing.T) {
