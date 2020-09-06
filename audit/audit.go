@@ -18,17 +18,21 @@ import (
 	"time"
 )
 
+// ChanConfig type for singleton channels
 type ChanConfig struct {
 	JobChan  chan interface{}
+	ErrChan  chan error
 	KillChan chan bool
 }
 
+// jobConfigType type for for config audit service
 type jobConfigType struct {
 	clientHost       string
 	auditHost        string
 	auditHostAuthKey string
 }
 
+// AuditEntry for transport to service
 type AuditEntry struct {
 	Host       string      `json:"host"`
 	Collection string      `json:"collection"`
@@ -38,22 +42,39 @@ type AuditEntry struct {
 }
 
 const (
-	Insert         = "insert"
-	Update         = "update"
-	Delete         = "delete"
+	// Actions
+	Insert = "insert"
+	Update = "update"
+	Delete = "delete"
+
+	// Timeout for cancel request
 	DefaultTimeout = time.Second * 15
+
+	// Route paths
 	PathLogEntry   = "/v1/log"
 	PathLogEntries = "/v1/bulk/log"
 )
 
+// Errors
 var (
-	once              sync.Once
-	chanConfig        *ChanConfig
-	jobConfig         *jobConfigType
-	log               *logrus.Entry
 	ErrAuditEntryType = errors.New("must be AuditEntry or []AuditEntry type")
-	throttle          = time.Millisecond * 50 // Default 50 milliseconds 20 per second
+	ErrRespContent    = errors.New("response shouldn't have any content")
+	ErrStatus         = errors.New("status must have 200")
 )
+
+var (
+	once           sync.Once
+	chanConfig     *ChanConfig             // singleton channels
+	jobConfig      *jobConfigType          // configuration for the jobs
+	log            *logrus.Entry           // logger as entry for context from app
+	throttle       = time.Millisecond * 25 // default 25 milliseconds 40 per second
+	runningWorkers = 0                     // running workers
+)
+
+// RunningWorkers shows how many workers are running
+func RunningWorkers() int {
+	return runningWorkers
+}
 
 // InitJobConfig set the global vars for all jobs
 // Example:
@@ -100,24 +121,18 @@ func GetChanConfig() *ChanConfig {
 // lxAudit.StartWorker()
 // or for testing send a chanErr
 // lxAudit.StartWorker(chanErr)
-func StartWorker(chanErr ...chan error) {
-	// Optional param chan error for testing
-	// By many params use latest param
-	var _chanErr chan error
-	for _, v := range chanErr {
-		_chanErr = v
-	}
-
+func StartWorker(name string) {
 	// Get singleton chan config
 	cc := GetChanConfig()
-	log.Info("start lxAudit worker")
+	log.Info("start lxAudit worker ", name)
 
 	// go func for worker
-	go func(cc *ChanConfig, _chanErr chan error) {
+	go func(cc *ChanConfig, name string) {
 		for true {
 			select {
 			case j := <-cc.JobChan:
-				// send the entries or entry to audit host
+				log.Warn(cc.ErrChan)
+				// send the entries or entry to audit service
 				err := RequestAudit(j, jobConfig.clientHost, jobConfig.auditHost, jobConfig.auditHostAuthKey)
 				if err != nil {
 					// log error for manual insert
@@ -135,120 +150,20 @@ func StartWorker(chanErr ...chan error) {
 				time.Sleep(throttle)
 				// chk err and send to channel
 				// important: caller has to wait for the signal
-				if _chanErr != nil {
-					_chanErr <- err
+				if cc.ErrChan != nil {
+					cc.ErrChan <- err
 				}
 			case <-cc.KillChan:
-				log.Info("shutdown worker with kill signal")
+				log.Infof("shutdown worker: %s with kill signal", name)
+				// important: caller has to wait for the signal
 				return
 			}
 		}
-	}(cc, _chanErr)
+	}(cc, name)
 }
 
-//
-//import (
-//	"errors"
-//	"fmt"
-//	lxHelper "github.com/litixsoft/lxgo/helper"
-//	"go.mongodb.org/mongo-driver/bson"
-//	"net/http"
-//	"time"
-//)
-//
-//const (
-//	Insert         = "insert"
-//	Update         = "update"
-//	Delete         = "delete"
-//	DefaultTimeout = time.Second * 30
-//	PathLogEntry   = "/v1/log"
-//	PathLogEntries = "/v1/bulk/log"
-//)
-//
-//// IAudit interface for audit logger
-//type IAudit interface {
-//	LogEntry(action string, user, data interface{}, timeout ...time.Duration) error
-//	LogEntries(entries []interface{}, timeout ...time.Duration) error
-//	GetWorkerChannels() auditWorkerChannels
-//}
-//
-//type audit struct {
-//	clientHost     string
-//	collectionName string
-//	auditHost      string
-//	auditAuthKey   string
-//	auditWorkerChannels auditWorkerChannels
-//}
-//
-//func NewAudit(clientHost, collectionName, auditHost, auditAuthKey string, channels auditWorkerChannels) IAudit {
-//	return &audit{
-//		clientHost:     clientHost,
-//		collectionName: collectionName,
-//		auditHost:      auditHost,
-//		auditAuthKey:   auditAuthKey,
-//		auditWorkerChannels: channels,
-//	}
-//}
-//
-////////////////////////////////////
-//type AuditEntry struct {
-//	Action string
-//	User   interface{}
-//	Data   interface{}
-//}
-//
-//type auditWorkerChannels struct {
-//	Queue chan interface{}
-//	Done  chan bool
-//	Err   chan error
-//	Kill  chan bool
-//}
-//
-//func (al *audit)GetWorkerChannels() auditWorkerChannels {
-//	return al.auditWorkerChannels
-//}
-//
-//func NewAuditWorkerChannels() auditWorkerChannels {
-//	return auditWorkerChannels{
-//		Queue: make(chan interface{}),
-//		Done:  make(chan bool),
-//		Err:   make(chan error),
-//		Kill:  make(chan bool),
-//	}
-//}
-//
-//func AuditWorker(channels auditWorkerChannels) {
-//	for true {
-//		select {
-//		case q := <-channels.Queue:
-//			// Convert type of queue
-//			switch val := q.(type) {
-//			default:
-//				fmt.Println("queue must be AuditEntry or []AuditEntry")
-//				channels.Err <- errors.New("queue type must be AuditEntry or []AuditEntry")
-//				channels.Done <- true
-//			case AuditEntry:
-//				fmt.Println("doing work with AuditEntry!!", val)
-//				channels.Err <- nil
-//				channels.Done <- true
-//			case []AuditEntry:
-//				fmt.Println("doing work with AuditEntries!!", val)
-//				channels.Err <- nil
-//				channels.Done <- true
-//			}
-//
-//			time.Sleep(time.Millisecond * 100)
-//
-//		case <-channels.Kill:
-//			return
-//		}
-//	}
-//}
-//
-//
-///////////////////////////////////
-
-// Log, send post request to audit service
+// RequestAudit send entry or entries to audit service.
+// This function can also be used independently of the worker.
 func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
@@ -320,58 +235,12 @@ func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey 
 			return err
 		}
 
-		return fmt.Errorf("status: %d result: %v", resp.StatusCode, result)
+		return fmt.Errorf("status: %v result: %v, %w", resp.Status, result, ErrRespContent)
 	}
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("status must be 200, actual: %d", resp.StatusCode)
+		return fmt.Errorf("%v, %w", resp.Status, ErrStatus)
 	}
 
 	return nil
 }
-
-//// LogEntries, send post request with entries to audit service
-//func (al *audit) LogEntries(entries []interface{}, timeout ...time.Duration) error {
-//	to := DefaultTimeout
-//	if len(timeout) > 0 {
-//		to = timeout[0]
-//	}
-//
-//	for _, entry := range entries {
-//		if val, ok := entry.(bson.M); ok {
-//			val["host"] = al.clientHost
-//			val["collection"] = al.collectionName
-//		}
-//	}
-//
-//	// Header
-//	header := http.Header{}
-//	header.Add("Content-Type", "application/json")
-//	header.Add("Authorization", "Bearer "+al.auditAuthKey)
-//
-//	// Uri
-//	uri := al.auditHost + PathLogEntries
-//
-//	// Request
-//	resp, err := lxHelper.Request(header, entries, uri, "POST", to)
-//	if err != nil {
-//		return err
-//	}
-//
-//	// Check status
-//	if resp.StatusCode != http.StatusOK {
-//		var ret bson.M
-//		if err := lxHelper.ReadResponseBody(resp, &ret); err != nil {
-//			return err
-//		}
-//
-//		// Check message exits
-//		if msg, ok := ret["message"]; ok {
-//			return NewAuditLogEntryError(resp.StatusCode, msg)
-//		}
-//
-//		return NewAuditLogEntryError(resp.StatusCode)
-//	}
-//
-//	return nil
-//}

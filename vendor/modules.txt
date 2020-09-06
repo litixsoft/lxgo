@@ -26,7 +26,7 @@ github.com/klauspost/compress/huff0
 github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/konsorten/go-windows-terminal-sequences v1.0.2
+# github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/labstack/echo/v4 v4.1.16
 ## explicit
@@ -46,9 +46,10 @@ github.com/mattn/go-isatty
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/sirupsen/logrus v1.5.0
+# github.com/sirupsen/logrus v1.6.0
 ## explicit
 github.com/sirupsen/logrus
+github.com/sirupsen/logrus/hooks/test
 # github.com/stretchr/testify v1.4.0
 ## explicit
 github.com/stretchr/testify/assert
