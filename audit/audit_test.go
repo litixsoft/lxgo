@@ -8,16 +8,29 @@ import (
 	lxHelper "github.com/litixsoft/lxgo/helper"
 	lxLog "github.com/litixsoft/lxgo/log"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
-	"os"
-
-	//"github.com/sirupsen/logrus/hooks/test"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
+
+func TestPanicsByGetChanConfig(t *testing.T) {
+	t.Run("Test GetChanConfig without InitJobConfig", func(t *testing.T) {
+		//  should be panic
+		assert.Panics(t, func() {
+			lxAudit.GetChanConfig()
+		})
+	})
+	t.Run("Test start worker without GetChanConfig", func(t *testing.T) {
+		//  should be panic
+		assert.Panics(t, func() {
+			lxAudit.StartWorker(nil, nil)
+		})
+	})
+}
 
 func TestRunningWorkers(t *testing.T) {
 	its := assert.New(t)
@@ -44,86 +57,32 @@ func TestRunningWorkers(t *testing.T) {
 		its.Equal(0, lxAudit.RunningWorkers())
 
 		cc := lxAudit.GetChanConfig()
-		numberOfWorkers := 3
-		for i := 0; i < numberOfWorkers; i++ {
+		numWorker := 3
+		for i := 0; i < numWorker; i++ {
 			lxAudit.StartWorker(cc.JobChan, cc.KillChan)
 		}
 
 		// Check running workers after start, should be 3
-		its.Equal(numberOfWorkers, lxAudit.RunningWorkers())
+		its.Equal(numWorker, lxAudit.RunningWorkers())
 
-		//numberOfJobs := 3
-		//for j := 0; j < numberOfJobs; j++ {
-		//	go func(j int) {
-		//		cc.JobChan <- lxAudit.AuditEntry{
-		//			Host: fmt.Sprintf("test_host_%d", j),
-		//		}
-		//	}(j)
-		//}
-		//
-		//for c := 0; c < numberOfJobs; c++ {
-		//	t.Log(<-cc.ErrChan)
-		//}
-
-		// cleaning workers
-		close(cc.KillChan)
-		time.Sleep(1 * time.Second)
+		// Stop the worker
+		// Important: a singleton channel don't be closed
+		for i := 0; i < numWorker; i++ {
+			cc.KillChan <- true
+		}
+		time.Sleep(time.Duration(time.Millisecond * 1))
 
 		// Check running workers after start, should be 3
 		its.Equal(0, lxAudit.RunningWorkers())
-
-		// StartWorker creates the ChanConfig singleton
-		// Channel error for waiting by testing
-		// Worker1
-		//chanErr1 := make(chan error)
-		//chanErr2 := make(chan error)
-		//
-		//lxAudit.StartWorker(chanErr1)
-		//lxAudit.StartWorker(chanErr2)
-
-		// Worker2
-		//chanErr2 := make(chan error)
-		//lxAudit.StartWorker(chanErr2)
-
-		// Check
-		//its.Equal(2, lxAudit.RunningWorkers())
-		//its.NoError(<-chanErr1)
-
-		// Quit all workers
-		//cc := lxAudit.GetChanConfig()
-		//cc.KillChan <- true
-
-		// Wait of kill all workers
-		//its.NoError(<-chanErr1)
-		//its.NoError(<-chanErr2)
-
-		//cc := lxAudit.GetChanConfig()
-		//cc.KillChan<- true
-		//
-		//time.Sleep(time.Second * 2)
-		//
-		//t.Log(lxAudit.RunningWorkers())
-		//its.NoError(<-chanErr)
-		//its.NoError(<-chanErr)
-		//its.NoError(<-chanErr)
-		//
-		//// Check running workers
-		//its.Equal(0, lxAudit.RunningWorkers())
-	})
-}
-
-func TestGetChanConfig(t *testing.T) {
-	t.Run("test panic error", func(t *testing.T) {
-
 	})
 }
 
 func TestStartWorker(t *testing.T) {
-	//its := assert.New(t)
+	its := assert.New(t)
 
 	// /dev/null for test
 	lxLog.InitLogger(
-		os.Stdout,
+		ioutil.Discard,
 		"debug",
 		"text")
 
@@ -155,94 +114,89 @@ func TestStartWorker(t *testing.T) {
 			server.URL,
 			"",
 			lxLog.GetLogger().WithFields(logrus.Fields{}),
-			time.Millisecond*1)
-
-		// Channel error for waiting by testing
-		//chanErr := make(chan error)
-
-		// StartWorker creates the ChanConfig singleton
-		//go lxAudit.StartWorker(0)
-		//go lxAudit.StartWorker("beta")
+			10*time.Millisecond)
 
 		// Get ChanConfig singleton
-		// Send job over JobChan channel to worker
 		cc := lxAudit.GetChanConfig()
-		// ErrChan for testing
-		cc.ErrChan = make(chan error)
-		go func() {
-			cc.JobChan <- testEntries
-		}()
 
-		// Wait err
-		t.Log(<-cc.ErrChan)
+		// StartWorker with ErrChan param for testing
+		numWorker := 2
+		for i := 0; i < numWorker; i++ {
+			lxAudit.StartWorker(cc.JobChan, cc.KillChan, cc.ErrChan)
+		}
 
-		//errChan := <- cc.ErrChan
-		//t.Log(errChan)
-		// Wait of sig
-		//its.NoError(<-chanErr)
+		// Send jobs over JobChan channel to worker
+		numJobs := 3
+		for i := 0; i < numJobs; i++ {
+			go func() {
+				cc.JobChan <- testEntries
+			}()
+		}
 
-		// Kill the worker
-		//cc.KillChan <- true
-		//time.Sleep(time.Duration(time.Second * 5))
+		// Wait of all ErrChan
+		for i := 0; i < numJobs; i++ {
+			its.NoError(<-cc.ErrChan)
+		}
 
-		// Wait of sig
-		//its.NoError(<-chanErr)
+		// Stop the worker
+		// important is a singleton channel not be closed
+		for i := 0; i < numWorker; i++ {
+			cc.KillChan <- true
+		}
+		time.Sleep(time.Duration(time.Millisecond * 10))
 	})
-	//t.Run("send entries to worker with != 200 error", func(t *testing.T) {
-	//	// Handler for test
-	//	handler := func(w http.ResponseWriter, r *http.Request){
-	//		w.WriteHeader(http.StatusUnprocessableEntity)
-	//	}
-	//
-	//	server := httptest.NewServer(http.HandlerFunc(handler))
-	//	defer server.Close()
-	//
-	//	// test logger for test with json output by error
-	//	testLogger, hook := test.NewNullLogger()
-	//
-	//	// InitJobConfig with test server for request
-	//	lxAudit.InitJobConfig(
-	//		"test-host",
-	//		server.URL,
-	//		"",
-	//		testLogger.WithFields(logrus.Fields{}),
-	//		time.Millisecond * 1)
-	//
-	//	// Channel error for waiting by testing
-	//	chanErr := make(chan error)
-	//
-	//	// StartWorker creates the ChanConfig singleton
-	//	lxAudit.StartWorker(chanErr)
-	//
-	//	// Get ChanConfig singleton
-	//	// Send job over JobChan channel to worker
-	//	cc := lxAudit.GetChanConfig()
-	//	go func() {
-	//		cc.JobChan <- testEntries
-	//	}()
-	//
-	//	// Wait of sig and check error
-	//	err := <-chanErr
-	//	its.Error(err)
-	//	its.True(errors.Is(err, lxAudit.ErrStatus))
-	//
-	//	// Analyse last entry data field in logger
-	//	// Convert data field to []lxAudit.AuditEntry for comparison
-	//	var resultEntries []lxAudit.AuditEntry
-	//	v, ok := hook.LastEntry().Data["job"].([]byte)
-	//	its.True(ok)
-	//	err = json.Unmarshal(v, &resultEntries)
-	//	its.NoError(err)
-	//
-	//	// Compare result with transferred data
-	//	its.Equal(testEntries, resultEntries)
-	//
-	//	// Kill the worker
-	//	cc.KillChan <- true
-	//
-	//	// Wait of sig
-	//	its.NoError(<-chanErr)
-	//})
+	t.Run("send entries to worker with != 200 error", func(t *testing.T) {
+		// Handler for test
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		}
+
+		server := httptest.NewServer(http.HandlerFunc(handler))
+		defer server.Close()
+
+		// test logger for test with json output by error
+		testLogger, hook := test.NewNullLogger()
+
+		// InitJobConfig with test server for request
+		lxAudit.InitJobConfig(
+			"test-host",
+			server.URL,
+			"",
+			testLogger.WithFields(logrus.Fields{}))
+
+		// Get ChanConfig singleton
+		cc := lxAudit.GetChanConfig()
+
+		// StartWorker with ErrChan param for testing
+		lxAudit.StartWorker(cc.JobChan, cc.KillChan, cc.ErrChan)
+
+		// Send sync job over JobChan channel to worker
+		cc.JobChan <- testEntries
+
+		// Wait of sig from errChan and check error
+		err := <-cc.ErrChan
+		its.Error(err)
+		its.True(errors.Is(err, lxAudit.ErrStatus))
+
+		its.True(true)
+		t.Log(hook)
+
+		// Analyse last entry data field in logger
+		// Convert data field to []lxAudit.AuditEntry for comparison
+		var resultEntries []lxAudit.AuditEntry
+		v, ok := hook.LastEntry().Data["job"].([]byte)
+		its.True(ok)
+		err = json.Unmarshal(v, &resultEntries)
+		its.NoError(err)
+
+		// Compare result with transferred data
+		its.Equal(testEntries, resultEntries)
+
+		// Stop the worker
+		// important is a singleton channel not be closed
+		cc.KillChan <- true
+		time.Sleep(time.Duration(time.Millisecond * 10))
+	})
 }
 
 func TestRequestAudit(t *testing.T) {
@@ -329,216 +283,4 @@ func TestRequestAudit(t *testing.T) {
 		its.Error(err)
 		its.True(errors.Is(lxAudit.ErrAuditEntryType, err))
 	})
-}
-
-//func TestAudit_LogEntry(t *testing.T) {
-//	its := assert.New(t)
-//
-//	t.Run("http.StatusOK", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusOK, "/v1/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//
-//		// log test entry and check error
-//		its.NoError(audit.LogEntry(lxAudit.Update, testUser, testData))
-//	})
-//	t.Run("http.StatusInternalServerError", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusInternalServerError, "/v1/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//
-//		// log test entry and check error
-//		err := audit.LogEntry(lxAudit.Update, testUser, testData)
-//		its.Error(err)
-//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-//		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
-//	})
-//	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//
-//		// log test entry and check error
-//		err := audit.LogEntry(lxAudit.Update, testUser, testData)
-//		its.Error(err)
-//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-//		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
-//	})
-//}
-
-//func TestAudit_LogEntries(t *testing.T) {
-//	its := assert.New(t)
-//
-//	// testEntries for check
-//	testEntries := bson.A{
-//		bson.M{
-//			"action": "insert",
-//			"user": bson.M{
-//				"name": "Timo Liebetrau",
-//			},
-//			"data": bson.M{
-//				"firstname": "Timo_1",
-//				"lastname":  "Liebetrau_1",
-//			},
-//		},
-//		bson.M{
-//			"action": "update",
-//			"user": bson.M{
-//				"name": "Timo Liebetrau",
-//			},
-//			"data": bson.M{
-//				"firstname": "Timo_2",
-//				"lastname":  "Liebetrau_2",
-//			},
-//		},
-//		bson.M{
-//			"action": "delete",
-//			"user": bson.M{
-//				"name": "Timo Liebetrau",
-//			},
-//			"data": bson.M{
-//				"firstname": "Timo_3",
-//				"lastname":  "Liebetrau_3",
-//			},
-//		},
-//	}
-//
-//	t.Run("http.StatusOK", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusOK, "/v1/bulk/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//		its.NoError(audit.LogEntries(testEntries))
-//	})
-//	t.Run("http.StatusInternalServerError", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusInternalServerError, "/v1/bulk/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//
-//		// log test entry and check error
-//		err := audit.LogEntries(testEntries)
-//		its.Error(err)
-//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-//		its.Equal(http.StatusInternalServerError, err.(*lxAudit.AuditLogEntryError).Code)
-//	})
-//	t.Run("http.StatusUnprocessableEntity", func(t *testing.T) {
-//		// get server and close the server when test finishes
-//		server := getTestServer(t, http.StatusUnprocessableEntity, "/v1/bulk/log")
-//		defer server.Close()
-//
-//		// instance
-//		audit := lxAudit.NewAudit(testClientHost, testCollectionName, server.URL, testKey)
-//
-//		// log test entry and check error
-//		err := audit.LogEntries(testEntries)
-//		its.Error(err)
-//		its.IsType(&lxAudit.AuditLogEntryError{}, err)
-//		its.Equal(http.StatusUnprocessableEntity, err.(*lxAudit.AuditLogEntryError).Code)
-//	})
-//}
-
-func TestAudit_Worker(t *testing.T) {
-	//message := lxHelper.M{
-	//	"hello": "world",
-	//	"life":  42,
-	//	"embedded": lxHelper.M{
-	//		"yes": "of course!",
-	//	},
-	//}
-	//
-	//jsonData, err := json.Marshal(message)
-	//if err != nil {
-	//	t.Log(err)
-	//	t.FailNow()
-	//}
-	//
-	//client := &http.Client{
-	//	Timeout: time.Second * 10,
-	//}
-	//
-	//req, err := http.NewRequest("POST", "http://localhost:3030", bytes.NewBuffer(jsonData))
-	//if err != nil {
-	//	t.Log(err)
-	//	t.FailNow()
-	//}
-	//req.Header.Set("Content-type", "application/json")
-	//resp, err := client.Do(req)
-	//if err != nil {
-	//	t.Log(err)
-	//	t.FailNow()
-	//}
-	//
-	//// Check error
-	//var result lxHelper.M
-	//if resp.ContentLength > 0 {
-	//	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-	//		t.Log(err)
-	//		t.Fail()
-	//	}
-	//}
-	//
-	//t.Log(result)
-
-	// get server and close the server when test finishes
-	//server := getTestServer(t, http.StatusOK, "/v1/log")
-	//defer server.Close()
-	//
-	//// Global
-	//log := lxLog.InitLogger(os.Stderr, "debug", "text")
-	//logEntry := log.WithFields(logrus.Fields{
-	//	"app":  "lxgo audit_test",
-	//	"func": "worker queue",
-	//})
-	//lxAudit.InitAuditWorker(testClientHost, "http://localhost:3000", testKey, logEntry, 2)
-	//
-	//// instance
-	//if !lxAudit.HasAuditWorkerInit() {
-	//	t.Log("not init worker queue")
-	//	t.FailNow()
-	//}
-	//worker := lxAudit.GetWorkerConfig()
-	//numberOfJobs := 20
-	//for j := 0; j < numberOfJobs; j++ {
-	//	go func(j int) {
-	//		t.Log("Start Job:", j)
-	//		worker.Queue <- lxAudit.AuditEntry{
-	//			Collection: testCollectionName,
-	//			Action:     fmt.Sprintf("%s_%d", lxAudit.Update, j),
-	//			User:       lxHelper.M{"name": fmt.Sprintf("tester_%d", j)},
-	//			Data:       lxHelper.M{"foo": fmt.Sprintf("bar_%d", j)},
-	//		}
-	//	}(j)
-	//}
-	//
-	//t.Log("Wait for jobs:", numberOfJobs)
-	//for c := 0; c < numberOfJobs; c++ {
-	//	<-worker.Err
-	//	<-worker.Done
-	//}
-	//
-	//// cleaning workers
-	//close(worker.Kill)
-
-	//t.Log("Post")
-	//lxAudit.LogEntry(lxAudit.AuditEntry{
-	//	Collection: testCollectionName,
-	//	Action:     lxAudit.Update,
-	//	User:       testUser,
-	//	Data:       testData,
-	//})
-
 }

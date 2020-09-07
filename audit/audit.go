@@ -92,8 +92,8 @@ func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *log
 	log = logEntry
 
 	// When workerThrottle set overwrite default
-	if len(workerThrottle) > 0 {
-		throttle = workerThrottle[0]
+	for _, v := range workerThrottle {
+		throttle = v
 	}
 }
 
