@@ -99,9 +99,21 @@ func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *log
 
 // GetChanConfig return singleton channel config instance
 // Before you can start that, an InitJobConfig must be made
-// Usage:
-//	c := lxAudit.GetChanConfig()
-// 	c.JobChan <- interface{}
+// Example for start workers:
+// 		cc := lxAudit.GetChanConfig()
+// 		lxAudit.StartWorker(cc.JobChan, cc.KillChan)
+// 		lxAudit.StartWorker(cc.JobChan, cc.KillChan)
+//
+// Example for send signal to worker queue
+//		cc := lxAudit.GetChanConfig()
+//		go func() {
+//			cc.JobChan <- lxAudit.AuditEntry{
+//				Host: fmt.Sprintf("test_host_"),
+//			}
+//		}()
+// Example for shutdown all worker
+// 		cc := lxAudit.GetChanConfig()
+//		close(cc.KillChan)
 func GetChanConfig() *ChanConfig {
 	if jobConfig == nil {
 		panic(errors.New("jobConfig is nil, InitJobConfig before GetChanConfig"))
@@ -109,6 +121,7 @@ func GetChanConfig() *ChanConfig {
 	once.Do(func() {
 		chanConfig = &ChanConfig{
 			JobChan:  make(chan interface{}),
+			ErrChan:  make(chan error),
 			KillChan: make(chan bool),
 		}
 	})
@@ -121,17 +134,30 @@ func GetChanConfig() *ChanConfig {
 // lxAudit.StartWorker()
 // or for testing send a chanErr
 // lxAudit.StartWorker(chanErr)
-func StartWorker(name string) {
-	// Get singleton chan config
-	cc := GetChanConfig()
-	log.Info("start lxAudit worker ", name)
+func StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error) {
+	// Check channel config
+	if chanConfig == nil {
+		panic(errors.New("chanConfig is nil, InitJobConfig before GetChanConfig"))
+	}
+	//cc := GetChanConfig()
+	log.Info("start worker", runningWorkers+1)
+
+	// increment worker
+	runningWorkers++
+
+	// Set worker name
+	workerNum := runningWorkers
+
+	var _errChan chan error
+	for _, v := range errChan {
+		_errChan = v
+	}
 
 	// go func for worker
-	go func(cc *ChanConfig, name string) {
+	go func(jobChan chan interface{}, killSig chan bool, errChan chan error, workerNum int) {
 		for true {
 			select {
-			case j := <-cc.JobChan:
-				log.Warn(cc.ErrChan)
+			case j := <-jobChan:
 				// send the entries or entry to audit service
 				err := RequestAudit(j, jobConfig.clientHost, jobConfig.auditHost, jobConfig.auditHostAuthKey)
 				if err != nil {
@@ -150,16 +176,16 @@ func StartWorker(name string) {
 				time.Sleep(throttle)
 				// chk err and send to channel
 				// important: caller has to wait for the signal
-				if cc.ErrChan != nil {
-					cc.ErrChan <- err
+				if _errChan != nil {
+					_errChan <- err
 				}
-			case <-cc.KillChan:
-				log.Infof("shutdown worker: %s with kill signal", name)
-				// important: caller has to wait for the signal
+			case <-killSig:
+				log.Infof("shutdown worker %d with kill signal", workerNum)
+				runningWorkers--
 				return
 			}
 		}
-	}(cc, name)
+	}(jobChan, killSig, _errChan, workerNum)
 }
 
 // RequestAudit send entry or entries to audit service.

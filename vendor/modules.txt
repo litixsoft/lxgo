@@ -49,7 +49,6 @@ github.com/pmezard/go-difflib/difflib
 # github.com/sirupsen/logrus v1.6.0
 ## explicit
 github.com/sirupsen/logrus
-github.com/sirupsen/logrus/hooks/test
 # github.com/stretchr/testify v1.4.0
 ## explicit
 github.com/stretchr/testify/assert
