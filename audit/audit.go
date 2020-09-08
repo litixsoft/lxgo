@@ -16,21 +16,7 @@ import (
 	"time"
 )
 
-// ChanConfig type for singleton channels
-//type ChanConfig struct {
-//	JobChan  chan interface{}
-//	ErrChan  chan error
-//	KillChan chan bool
-//}
-
-// jobConfigType type for for config audit service
-//type auditConfig struct {
-//	clientHost       string
-//	auditHost        string
-//	auditHostAuthKey string
-//}
-
-// AuditEntry for transport to service
+// AuditEntry transport type for service
 type AuditEntry struct {
 	Host       string      `json:"host"`
 	Collection string      `json:"collection"`
@@ -39,13 +25,17 @@ type AuditEntry struct {
 	Data       interface{} `json:"data"`
 }
 
-type IAudit interface {
-	LogAudit(elem interface{})
+// AuditEntries transport type for service
+type AuditEntries []AuditEntry
+
+// IQueue
+type IQueue interface {
+	Send(elem interface{})
 	GetCountOfRunningWorkers() int
 	StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error)
 }
 
-type audit struct {
+type queue struct {
 	clientHost       string
 	auditHost        string
 	auditHostAuthKey string
@@ -78,17 +68,10 @@ var (
 	ErrStatus         = errors.New("status must have 200")
 )
 
-//var (
-//	once           sync.Once
-//	chanConfig     *ChanConfig             // singleton channels
-//	jobConfig      *jobConfigType          // configuration for the jobs
-//	log            *logrus.Entry           // logger as entry for context from app
-//	throttle       = time.Millisecond * 25 // default 25 milliseconds 40 per second
-//	runningWorkers = 0                     // running workers
-//)
-
-// NewAudit
-func NewAudit(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry, workerThrottle ...time.Duration) *audit {
+// NewQueue create instance of queue
+// Example:
+//
+func NewQueue(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry, workerThrottle ...time.Duration) *queue {
 	// default 25 milliseconds 40 per second
 	throttle := time.Millisecond * 25
 	// When workerThrottle set overwrite default
@@ -96,7 +79,7 @@ func NewAudit(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.E
 		throttle = v
 	}
 
-	return &audit{
+	return &queue{
 		clientHost:       clientHost,
 		auditHost:        auditHost,
 		auditHostAuthKey: auditHostAuthKey,
@@ -107,46 +90,18 @@ func NewAudit(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.E
 		ErrChan:          make(chan error),
 		KillChan:         make(chan bool),
 	}
-
-	// Start the worker
-	//for i:=0; i < workers; i++ {
-	//	audit.worker(ac.jobChan, ac.killChan, ac.)
-	//}
-
-	//return &audit{
-	//	clientHost:       clientHost,
-	//	auditHost:        auditHost,
-	//	auditHostAuthKey: auditHostAuthKey,
-	//	log: logEntry,
-	//}
-	//
-	//jobConfig = &jobConfigType{
-	//	clientHost:       clientHost,
-	//	auditHost:        auditHost,
-	//	auditHostAuthKey: auditHostAuthKey,
-	//}
-	//log = logEntry
-	//
-	//// When workerThrottle set overwrite default
-	//for _, v := range workerThrottle {
-	//	throttle = v
-	//}
-	//
-	//return &ChanConfig{
-	//	JobChan:  make(chan interface{}),
-	//	ErrChan:  make(chan error),
-	//	KillChan: make(chan bool)}
 }
 
-// StartWorker starts a worker with singleton channel config.
-// Before you can start that, an InitJobConfig must be made
+// StartWorker starts a worker
 // Example:
+// queue := NewQueue(....)
+// queue.StartWorker(queue.JobChan, queue.KillChan)
 // lxAudit.StartWorker()
 // or for testing send a chanErr
-// lxAudit.StartWorker(chanErr)
-func (ac *audit) StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error) {
+// queue.StartWorker(queue.JobChan, queue.KillChan)
+func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error) {
 	// increment worker
-	ac.runningWorkers++
+	qu.runningWorkers++
 
 	// Set _errChan, when not given than is nil
 	var _errChan chan error
@@ -160,44 +115,45 @@ func (ac *audit) StartWorker(jobChan chan interface{}, killSig chan bool, errCha
 			select {
 			case j := <-jobChan:
 				// send the entries or entry to audit service
-				err := RequestAudit(j, ac.clientHost, ac.auditHost, ac.auditHostAuthKey)
+				err := RequestAudit(j, qu.clientHost, qu.auditHost, qu.auditHostAuthKey)
 				if err != nil {
 					// log error for manual insert
 					jsonJob, jsonErr := json.Marshal(j)
-					ctxLog := ac.log.WithField("func", "lxAudit.StartWorker")
+					ctxLog := qu.log.WithField("func", "lxAudit.StartWorker")
 					if jsonErr != nil {
 						// error by convert job to json print in raw
 						ctxLog.WithField("job", j).Error("error by RequestAudit can't convert job to json")
 					} else {
 						// log error as json for manual insert
-						ac.log.WithField("job", jsonJob).Error("error by RequestAudit, can't send entries")
+						qu.log.WithField("job", jsonJob).Error("error by RequestAudit, can't send entries")
 					}
 				}
 				// stop before end job
-				time.Sleep(ac.throttle)
+				time.Sleep(qu.throttle)
 				// chk err and send to channel
 				// important: caller has to wait for the signal
 				if _errChan != nil {
 					_errChan <- err
 				}
 			case <-killSig:
-				ac.log.Infof("shutdown worker %d with kill signal", workerNum)
-				ac.runningWorkers--
+				qu.log.Infof("shutdown worker %d with kill signal", workerNum)
+				qu.runningWorkers--
 				return
 			}
 		}
-	}(jobChan, killSig, _errChan, ac.runningWorkers)
+	}(jobChan, killSig, _errChan, qu.runningWorkers)
 }
 
-// RunningWorkers shows how many workers are running
-func (ac *audit) GetCountOfRunningWorkers() int {
-	return ac.runningWorkers
+// GetCountOfRunningWorkers shows how many workers are running
+func (qu *queue) GetCountOfRunningWorkers() int {
+	return qu.runningWorkers
 }
 
-// LogAudit
-func (ac *audit) LogAudit(elem interface{}) {
+// Send async send elem to worker,
+// elm must be AuditEntry or AuditEntries type
+func (qu *queue) Send(elem interface{}) {
 	go func() {
-		ac.JobChan <- elem
+		qu.JobChan <- elem
 	}()
 }
 
@@ -222,41 +178,9 @@ func (ac *audit) LogAudit(elem interface{}) {
 //	}
 //}
 
-// GetAuditQueueChan return singleton channel config instance
-// Before you can start that, an InitJobConfig must be made
-// Example for start workers:
-// 		cc := lxAudit.GetChanConfig()
-// 		lxAudit.StartWorker(cc.JobChan, cc.KillChan)
-// 		lxAudit.StartWorker(cc.JobChan, cc.KillChan)
-//
-// Example for send signal to worker queue
-//		cc := lxAudit.GetChanConfig()
-//		go func() {
-//			cc.JobChan <- lxAudit.AuditEntry{
-//				Host: fmt.Sprintf("test_host_"),
-//			}
-//		}()
-// Example for shutdown all worker
-// 		cc := lxAudit.GetChanConfig()
-//		close(cc.KillChan)
-//func GetAuditQueueChan() *ChanConfig {
-//	if jobConfig == nil || chanConfig == nil {
-//		panic(errors.New("must  before NewAuditQueue"))
-//	}
-//	once.Do(func() {
-//		chanConfig = &ChanConfig{
-//
-//			JobChan:  make(chan interface{}),
-//			ErrChan:  make(chan error),
-//			KillChan: make(chan bool),
-//		}
-//	})
-//	return chanConfig
-//}
-
 // RequestAudit send entry or entries to audit service.
 // This function can also be used independently of the worker.
-func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
+func RequestAudit(elem interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
 		to = timeout[0]
@@ -265,7 +189,7 @@ func RequestAudit(auditEntries interface{}, clientHost, auditHost, auditAuthKey 
 	// Request
 	var req *http.Request
 
-	switch val := auditEntries.(type) {
+	switch val := elem.(type) {
 	default:
 		// Wrong type return with error
 		return ErrAuditEntryType
