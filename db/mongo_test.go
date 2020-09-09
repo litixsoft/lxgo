@@ -329,17 +329,18 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		doAction := func(elem interface{}) {
 			switch val := elem.(type) {
 			case bson.M:
-				bm, err := lxDb.ToBsonMap(val["data"])
-				its.NoError(err)
-				subId := val["meta"].(bson.M)["subId"].(bson.M)
-				for k, v := range subId {
-					if _, ok := bm[k]; !ok {
-						bm[k] = v
+				if val["action"] == "insert" {
+					bm, err := lxDb.ToBsonMap(val["data"])
+					its.NoError(err)
+					for k, v := range val["InsertedID"].(bson.M) {
+						if _, ok := bm[k]; !ok {
+							bm[k] = v
+						}
 					}
+					val["data"] = bm
 				}
-				t.Log(bm)
-				t.Log(subId)
 
+				t.Log(val)
 			}
 
 			//val, ok1 := elem.(bson.M)

@@ -144,8 +144,7 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			"action":     Insert,
 			"user":       authUser,
 			"data":       doc,
-			"meta": bson.M{
-				"subId": bson.M{subIdName: res.InsertedID}},
+			"InsertedID": bson.M{subIdName: res.InsertedID},
 		})
 
 		// Check id exists and not empty
