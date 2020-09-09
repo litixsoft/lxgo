@@ -70,7 +70,13 @@ var (
 
 // NewQueue create instance of queue
 // Example:
-//
+// queue := lxAudit.NewQueue(
+// 		"test-host",
+//		server.URL,
+//		"<auth key for host>",
+//		lxLog.GetLogger().WithFields(logrus.Fields{}),
+//		10 * time.Millisecond)
+// optional workerThrottle is time.Sleep after job
 func NewQueue(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry, workerThrottle ...time.Duration) *queue {
 	// default 25 milliseconds 40 per second
 	throttle := time.Millisecond * 25
@@ -96,7 +102,6 @@ func NewQueue(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.E
 // Example:
 // queue := NewQueue(....)
 // queue.StartWorker(queue.JobChan, queue.KillChan)
-// lxAudit.StartWorker()
 // or for testing send a chanErr
 // queue.StartWorker(queue.JobChan, queue.KillChan)
 func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error) {
@@ -145,41 +150,28 @@ func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errCha
 }
 
 // GetCountOfRunningWorkers shows how many workers are running
+// Example:
+// queue := NewQueue(....)
+// queue.GetCountOfRunningWorkers()
 func (qu *queue) GetCountOfRunningWorkers() int {
 	return qu.runningWorkers
 }
 
 // Send async send elem to worker,
 // elm must be AuditEntry or AuditEntries type
+// Example:
+// queue := NewQueue(....)
+// queue.Send(lxAudit.AuditEntry{...})
 func (qu *queue) Send(elem interface{}) {
 	go func() {
 		qu.JobChan <- elem
 	}()
 }
 
-// InitJobConfig set the global vars for all jobs
-// Example:
-// lxAudit.InitJobConfig(
-//		testClientHost,
-//		"http://localhost:3000",
-//		"c7a34742-0a91-5fb9-81c3-934c76f72436",
-//		lxLog.GetLogger().WithFields(logrus.Fields{"client": "TestTheWest"}))
-//func InitJobConfig(clientHost, auditHost, auditHostAuthKey string, logEntry *logrus.Entry, workerThrottle ...time.Duration) {
-//	jobConfig = &jobConfigType{
-//		clientHost:       clientHost,
-//		auditHost:        auditHost,
-//		auditHostAuthKey: auditHostAuthKey,
-//	}
-//	log = logEntry
-//
-//	// When workerThrottle set overwrite default
-//	for _, v := range workerThrottle {
-//		throttle = v
-//	}
-//}
-
 // RequestAudit send entry or entries to audit service.
 // This function can also be used independently of the worker.
+// Example:
+// err := lxAudit.RequestAudit(...)
 func RequestAudit(elem interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
