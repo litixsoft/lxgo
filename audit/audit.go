@@ -28,13 +28,6 @@ type AuditEntry struct {
 // AuditEntries transport type for service
 type AuditEntries []AuditEntry
 
-// IQueue
-type IQueue interface {
-	Send(elem interface{})
-	GetCountOfRunningWorkers() int
-	StartWorker(jobChan chan interface{}, killSig chan bool, errChan ...chan error)
-}
-
 type queue struct {
 	clientHost       string
 	auditHost        string
@@ -157,11 +150,18 @@ func (qu *queue) GetCountOfRunningWorkers() int {
 	return qu.runningWorkers
 }
 
+// IsActive return true when worker running,
+// IBaseRepoAudit
+func (qu *queue) IsActive() bool {
+	return qu.GetCountOfRunningWorkers() > 0
+}
+
 // Send async send elem to worker,
 // elm must be AuditEntry or AuditEntries type
 // Example:
 // queue := NewQueue(....)
 // queue.Send(lxAudit.AuditEntry{...})
+// IBaseRepoAudit
 func (qu *queue) Send(elem interface{}) {
 	go func() {
 		qu.JobChan <- elem

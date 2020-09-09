@@ -9,7 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"log"
 	"time"
 )
 
@@ -95,9 +94,9 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
-	subIdName := "_id"
+	//done := make(chan bool)
+	//chanErr := make(chan error)
+	//subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -107,12 +106,12 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
-		case *SubIdName:
-			subIdName = val.Name
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
+			//case *SubIdName:
+			//	subIdName = val.Name
 		}
 	}
 
@@ -127,29 +126,33 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	if authUser != nil && repo.audit != nil {
 		// Start audit async
 		go func() {
-			defer func() {
-				done <- true
-			}()
+			//defer func() {
+			//	done <- true
+			//}()
 
 			// Convert for audit
-			bm, err := ToBsonMap(doc)
-			if err != nil {
-				log.Printf("insert audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
+			//bm, err := ToBsonMap(doc)
+			//if err != nil {
+			//	log.Printf("insert audit error:%v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
 
 			// Check id exists and not empty
-			if _, ok := bm[subIdName]; !ok {
-				bm[subIdName] = res.InsertedID
-			}
+			//if _, ok := bm[subIdName]; !ok {
+			//	bm[subIdName] = res.InsertedID
+			//}
 
 			// Write to logger
-			if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
-				log.Printf("insert audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
+			//if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
+			//	log.Printf("insert audit error:%v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
+
+			//if repo.audit.IsActive() {
+			//	repo.audit.Send(doc)
+			//}
 		}()
 	}
 
@@ -161,8 +164,8 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 	timeout := DefaultTimeout
 	opts := &options.InsertManyOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
@@ -173,10 +176,10 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+		//case chan bool:
+		//	done = val
+		//case chan error:
+		//	chanErr = val
 		case *SubIdName:
 			subIdName = val.Name
 		}
@@ -231,16 +234,16 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 
 		// Start audit async
 		go func() {
-			defer func() {
-				done <- true
-			}()
-
-			// Write to logger
-			if err := repo.audit.LogEntries(auditEntries); err != nil {
-				log.Printf("insert many audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
+			//defer func() {
+			//	done <- true
+			//}()
+			//
+			//// Write to logger
+			//if err := repo.audit.LogEntries(auditEntries); err != nil {
+			//	log.Printf("insert many audit error:%v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
 		}()
 
 		return insertManyResult, nil
@@ -379,8 +382,8 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndDeleteOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -390,10 +393,10 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
 		}
 	}
 
@@ -417,16 +420,16 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	if authUser != nil && repo.audit != nil {
 		// Start audit async
 		go func() {
-			defer func() {
-				done <- true
-			}()
-
-			// Write to logger
-			if err := repo.audit.LogEntry(Delete, authUser, result); err != nil {
-				log.Printf("audit delete error: %v\n", err)
-				chanErr <- err
-				return
-			}
+			//defer func() {
+			//	done <- true
+			//}()
+			//
+			//// Write to logger
+			//if err := repo.audit.LogEntry(Delete, authUser, result); err != nil {
+			//	log.Printf("audit delete error: %v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
 		}()
 	}
 
@@ -439,8 +442,8 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 	timeout := DefaultTimeout
 	opts := options.FindOneAndReplace()
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -450,10 +453,10 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
 		}
 	}
 
@@ -503,16 +506,16 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			if !cmp.Equal(beforeReplace, afterReplace) {
 				// Start audit async
 				go func() {
-					defer func() {
-						done <- true
-					}()
-
-					// Write to logger
-					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
-						log.Printf("update audit error:%v\n", err)
-						chanErr <- err
-						return
-					}
+					//defer func() {
+					//	done <- true
+					//}()
+					//
+					//// Write to logger
+					//if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+					//	log.Printf("update audit error:%v\n", err)
+					//	chanErr <- err
+					//	return
+					//}
 				}()
 			}
 		case options.Before:
@@ -543,16 +546,16 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			if !cmp.Equal(beforeReplace, afterReplace) {
 				// Start audit async
 				go func() {
-					defer func() {
-						done <- true
-					}()
-
-					// Write to logger
-					if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
-						log.Printf("update audit error:%v\n", err)
-						chanErr <- err
-						return
-					}
+					//defer func() {
+					//	done <- true
+					//}()
+					//
+					//// Write to logger
+					//if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
+					//	log.Printf("update audit error:%v\n", err)
+					//	chanErr <- err
+					//	return
+					//}
 				}()
 			}
 		}
@@ -580,8 +583,8 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndUpdateOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -591,10 +594,10 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
 		}
 	}
 
@@ -644,16 +647,16 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			if !cmp.Equal(beforeUpdate, afterUpdate) {
 				// Start audit async
 				go func() {
-					defer func() {
-						done <- true
-					}()
-
-					// Write to logger
-					if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-						log.Printf("update audit error:%v\n", err)
-						chanErr <- err
-						return
-					}
+					//defer func() {
+					//	done <- true
+					//}()
+					//
+					//// Write to logger
+					//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+					//	log.Printf("update audit error:%v\n", err)
+					//	chanErr <- err
+					//	return
+					//}
 				}()
 			}
 		case options.Before:
@@ -684,16 +687,16 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			if !cmp.Equal(beforeUpdate, afterUpdate) {
 				// Start audit async
 				go func() {
-					defer func() {
-						done <- true
-					}()
-
-					// Write to logger
-					if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-						log.Printf("update audit error:%v\n", err)
-						chanErr <- err
-						return
-					}
+					//defer func() {
+					//	done <- true
+					//}()
+					//
+					//// Write to logger
+					//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+					//	log.Printf("update audit error:%v\n", err)
+					//	chanErr <- err
+					//	return
+					//}
 				}()
 			}
 		}
@@ -720,8 +723,8 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -731,10 +734,10 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
 		}
 	}
 
@@ -769,16 +772,16 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		if !cmp.Equal(beforeUpdate, afterUpdate) {
 			// Start audit async
 			go func() {
-				defer func() {
-					done <- true
-				}()
-
-				// Write to logger
-				if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-					log.Printf("update audit error:%v\n", err)
-					chanErr <- err
-					return
-				}
+				//defer func() {
+				//	done <- true
+				//}()
+				//
+				//// Write to logger
+				//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
+				//	log.Printf("update audit error:%v\n", err)
+				//	chanErr <- err
+				//	return
+				//}
 			}()
 		}
 		return nil
@@ -805,8 +808,8 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 	subIdName := "_id"
 
 	// Check args
@@ -818,10 +821,10 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+		//case chan bool:
+		//	done = val
+		//case chan error:
+		//	chanErr = val
 		case *SubIdName:
 			subIdName = val.Name
 		}
@@ -882,16 +885,16 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 
 		// Start audit async
 		go func() {
-			defer func() {
-				done <- true
-			}()
-
-			// Write to logger
-			if err := repo.audit.LogEntries(auditEntries); err != nil {
-				log.Printf("update audit error:%v\n", err)
-				chanErr <- err
-				return
-			}
+			//defer func() {
+			//	done <- true
+			//}()
+			//
+			//// Write to logger
+			//if err := repo.audit.LogEntries(auditEntries); err != nil {
+			//	log.Printf("update audit error:%v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
 		}()
 
 		return updateManyResult, nil
@@ -921,8 +924,8 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndDeleteOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
+	//done := make(chan bool)
+	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -932,10 +935,10 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
 		}
 	}
 
@@ -963,16 +966,16 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	if authUser != nil && repo.audit != nil {
 		// Start audit async
 		go func() {
-			defer func() {
-				done <- true
-			}()
-
-			// Write to logger
-			if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": beforeDelete.ID}); err != nil {
-				log.Printf("audit delete error: %v\n", err)
-				chanErr <- err
-				return
-			}
+			//defer func() {
+			//	done <- true
+			//}()
+			//
+			//// Write to logger
+			//if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": beforeDelete.ID}); err != nil {
+			//	log.Printf("audit delete error: %v\n", err)
+			//	chanErr <- err
+			//	return
+			//}
 		}()
 	}
 
@@ -985,9 +988,9 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 	timeout := DefaultTimeout
 	opts := &options.DeleteOptions{}
 	var authUser interface{}
-	done := make(chan bool)
-	chanErr := make(chan error)
-	subIdName := "_id"
+	//done := make(chan bool)
+	//chanErr := make(chan error)
+	//subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -997,12 +1000,12 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case chan bool:
-			done = val
-		case chan error:
-			chanErr = val
-		case *SubIdName:
-			subIdName = val.Name
+			//case chan bool:
+			//	done = val
+			//case chan error:
+			//	chanErr = val
+			//case *SubIdName:
+			//	subIdName = val.Name
 		}
 	}
 
@@ -1037,24 +1040,24 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 		// Start audit async
 		if allDocs != nil && len(allDocs) > 0 {
 			go func(allDocs []interface{}) {
-				defer func() {
-					done <- true
-				}()
-
-				// create audit entries
-				var auditEntries bson.A
-				for _, doc := range allDocs {
-					// data save only sub id by deleted
-					data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
-					auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
-				}
-
-				// Write to logger
-				if err := repo.audit.LogEntries(auditEntries); err != nil {
-					log.Printf("delete audit error:%v\n", err)
-					chanErr <- err
-					return
-				}
+				//defer func() {
+				//	done <- true
+				//}()
+				//
+				//// create audit entries
+				//var auditEntries bson.A
+				//for _, doc := range allDocs {
+				//	// data save only sub id by deleted
+				//	data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
+				//	auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
+				//}
+				//
+				//// Write to logger
+				//if err := repo.audit.LogEntries(auditEntries); err != nil {
+				//	log.Printf("delete audit error:%v\n", err)
+				//	chanErr <- err
+				//	return
+				//}
 			}(allDocs)
 		}
 

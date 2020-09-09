@@ -2,7 +2,6 @@ package lxDb
 
 import (
 	"go.mongodb.org/mongo-driver/bson"
-	"time"
 )
 
 // IBaseRepo
@@ -29,8 +28,11 @@ type IBaseRepo interface {
 }
 
 type IBaseRepoAudit interface {
-	LogEntry(action string, user, data interface{}, timeout ...time.Duration) error
-	LogEntries(entries []interface{}, timeout ...time.Duration) error
+	Send(elem interface{})
+	IsActive() bool
+}
+
+type BaseRepoAuditEntry struct {
 }
 
 // AuthAudit, auth user for audit
