@@ -32,7 +32,11 @@ type IBaseRepoAudit interface {
 	IsActive() bool
 }
 
-type BaseRepoAuditEntry struct {
+type AuditEntry struct {
+	Collection string      `json:"collection"`
+	Action     string      `json:"action"`
+	User       interface{} `json:"user"`
+	Data       interface{} `json:"data"`
 }
 
 // AuthAudit, auth user for audit

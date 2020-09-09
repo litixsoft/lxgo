@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
-
 	//"errors"
 	"fmt"
 	//"github.com/sirupsen/logrus"
@@ -163,9 +162,12 @@ func (qu *queue) IsActive() bool {
 // queue.Send(lxAudit.AuditEntry{...})
 // IBaseRepoAudit
 func (qu *queue) Send(elem interface{}) {
-	go func() {
-		qu.JobChan <- elem
-	}()
+	//switch val := elem.(type) {
+	//case bson.M:
+	//
+	//
+	//}
+	qu.JobChan <- elem
 }
 
 // RequestAudit send entry or entries to audit service.

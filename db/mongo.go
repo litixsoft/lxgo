@@ -3,6 +3,7 @@ package lxDb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -96,7 +97,7 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	var authUser interface{}
 	//done := make(chan bool)
 	//chanErr := make(chan error)
-	//subIdName := "_id"
+	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -106,14 +107,18 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
-			//case *SubIdName:
-			//	subIdName = val.Name
+		//case chan bool:
+		//	done = val
+		//case chan error:
+		//	chanErr = val
+		case *SubIdName:
+			subIdName = val.Name
 		}
 	}
+
+	v, ok := doc.(interface{})
+	fmt.Print(ok)
+	fmt.Print(v)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -123,37 +128,38 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 		return nil, err
 	}
 
-	if authUser != nil && repo.audit != nil {
-		// Start audit async
-		go func() {
-			//defer func() {
-			//	done <- true
-			//}()
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
+		// Start audit
+		//go func() {
+		//	// Convert for audit
+		//	bm, err := ToBsonMap(doc)
+		//	if err != nil {
+		//		//log.Printf("insert audit error:%v\n", err)
+		//		return
+		//	}
+		//}()
 
-			// Convert for audit
-			//bm, err := ToBsonMap(doc)
-			//if err != nil {
-			//	log.Printf("insert audit error:%v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
+		repo.audit.Send(bson.M{
+			"collection": repo.collection.Name(),
+			"action":     Insert,
+			"user":       authUser,
+			"data":       doc,
+			"meta": bson.M{
+				"subId": bson.M{subIdName: res.InsertedID}},
+		})
 
-			// Check id exists and not empty
-			//if _, ok := bm[subIdName]; !ok {
-			//	bm[subIdName] = res.InsertedID
-			//}
+		// Check id exists and not empty
+		//if _, ok := bm[subIdName]; !ok {
+		//	bm[subIdName] = res.InsertedID
+		//}
 
-			// Write to logger
-			//if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
-			//	log.Printf("insert audit error:%v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
-
-			//if repo.audit.IsActive() {
-			//	repo.audit.Send(doc)
-			//}
-		}()
+		// Write to logger
+		//if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
+		//	log.Printf("insert audit error:%v\n", err)
+		//	chanErr <- err
+		//	return
+		//}
+		//}()
 	}
 
 	return res.InsertedID, nil
