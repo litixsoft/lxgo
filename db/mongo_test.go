@@ -296,7 +296,8 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 
 	testUser := TestUser{Name: "TestName", Email: "test@test.de"}
 
-	t.Run("insert one", func(t *testing.T) {
+	t.Run("without_audit", func(t *testing.T) {
+		t.Log("without audit")
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
@@ -313,7 +314,8 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		its.Equal(testUser.Email, checkUser.Email)
 		its.Equal(testUser.IsActive, checkUser.IsActive)
 	})
-	t.Run("with audit", func(t *testing.T) {
+	t.Run("with_audit", func(t *testing.T) {
+		t.Log("with audit")
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
@@ -326,6 +328,7 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
 		// Check mock params
+		//var chkInsertedId interface{}
 		doAction := func(elem interface{}) {
 			switch val := elem.(type) {
 			case bson.M:
@@ -335,27 +338,19 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 					for k, v := range val["InsertedID"].(bson.M) {
 						if _, ok := bm[k]; !ok {
 							bm[k] = v
+							//chkInsertedId = v
 						}
 					}
 					val["data"] = bm
-				}
 
-				t.Log(val)
+					// Check
+					its.Equal(lxDb.Insert, val["action"].(string))
+					//its.Equal(au, val["user"])
+				}
+			default:
+				t.Fail()
 			}
 
-			//val, ok1 := elem.(bson.M)
-			//
-			//
-			//t.Logf("%T", val1["data"])
-			//val2, ok2 := val1["data"].(bson.M)
-			//t.Log(elem)
-			//t.Log(ok1)
-			//t.Log(val1)
-			//t.Log(ok2)
-			//t.Log(val2)
-
-			//its.Equal(lxDb.Insert, act)
-			//its.Equal(au, usr)
 			//its.Equal(testUser.Name, data.(bson.M)["name"])
 			//its.Equal(testUser.Email, data.(bson.M)["email"])
 		}
