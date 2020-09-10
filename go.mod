@@ -3,22 +3,26 @@ module github.com/litixsoft/lxgo
 go 1.14
 
 require (
-	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.3.5 // indirect
-	github.com/google/go-cmp v0.4.0
-	github.com/klauspost/compress v1.10.3 // indirect
-	github.com/labstack/echo/v4 v4.1.16
+	github.com/aws/aws-sdk-go v1.34.20 // indirect
+	github.com/golang/mock v1.4.4
+	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/google/go-cmp v0.5.2
+	github.com/kisielk/errcheck v1.2.0 // indirect
+	github.com/klauspost/compress v1.11.0 // indirect
+	github.com/labstack/echo/v4 v4.1.17
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0
-	go.mongodb.org/mongo-driver v1.3.1
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
-	golang.org/x/net v0.0.0-20200513185701-a91f0712d120 // indirect
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775 // indirect
-	google.golang.org/appengine v1.6.5 // indirect
+	go.mongodb.org/mongo-driver v1.4.1
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 // indirect
+	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/protobuf v1.25.0 // indirect
+	rsc.io/quote/v3 v3.1.0 // indirect
 )

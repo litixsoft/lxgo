@@ -18,7 +18,8 @@ const (
 
 type doubleFastEncoder struct {
 	fastEncoder
-	longTable [dFastLongTableSize]tableEntry
+	longTable     [dFastLongTableSize]tableEntry
+	dictLongTable []tableEntry
 }
 
 // Encode mimmics functionality in zstd_dfast.c
@@ -80,10 +81,7 @@ func (e *doubleFastEncoder) Encode(blk *blockEnc, src []byte) {
 	sLimit := int32(len(src)) - inputMargin
 	// stepSize is the number of bytes to skip on every main loop iteration.
 	// It should be >= 1.
-	stepSize := int32(e.o.targetLength)
-	if stepSize == 0 {
-		stepSize++
-	}
+	const stepSize = 1
 
 	const kSearchStrength = 8
 
@@ -401,10 +399,7 @@ func (e *doubleFastEncoder) EncodeNoHist(blk *blockEnc, src []byte) {
 	sLimit := int32(len(src)) - inputMargin
 	// stepSize is the number of bytes to skip on every main loop iteration.
 	// It should be >= 1.
-	stepSize := int32(e.o.targetLength)
-	if stepSize == 0 {
-		stepSize++
-	}
+	const stepSize = 1
 
 	const kSearchStrength = 8
 
@@ -500,7 +495,7 @@ encodeLoop:
 				// but the likelihood of both the first 4 bytes and the hash matching should be enough.
 				t = candidateL.offset - e.cur
 				if debugAsserts && s <= t {
-					panic(fmt.Sprintf("s (%d) <= t (%d)", s, t))
+					panic(fmt.Sprintf("s (%d) <= t (%d). cur: %d", s, t, e.cur))
 				}
 				if debugAsserts && s-t > e.maxMatchOff {
 					panic("s - t >e.maxMatchOff")
@@ -677,4 +672,42 @@ encodeLoop:
 		println("returning, recent offsets:", blk.recentOffsets, "extra literals:", blk.extraLits)
 	}
 
+	// We do not store history, so we must offset e.cur to avoid false matches for next user.
+	if e.cur < bufferReset {
+		e.cur += int32(len(src))
+	}
+}
+
+// ResetDict will reset and set a dictionary if not nil
+func (e *doubleFastEncoder) Reset(d *dict, singleBlock bool) {
+	e.fastEncoder.Reset(d, singleBlock)
+	if d == nil {
+		return
+	}
+
+	// Init or copy dict table
+	if len(e.dictLongTable) != len(e.longTable) || d.id != e.lastDictID {
+		if len(e.dictLongTable) != len(e.longTable) {
+			e.dictLongTable = make([]tableEntry, len(e.longTable))
+		}
+		if len(d.content) >= 8 {
+			cv := load6432(d.content, 0)
+			e.dictLongTable[hash8(cv, dFastLongTableBits)] = tableEntry{
+				val:    uint32(cv),
+				offset: e.maxMatchOff,
+			}
+			end := int32(len(d.content)) - 8 + e.maxMatchOff
+			for i := e.maxMatchOff + 1; i < end; i++ {
+				cv = cv>>8 | (uint64(d.content[i-e.maxMatchOff+7]) << 56)
+				e.dictLongTable[hash8(cv, dFastLongTableBits)] = tableEntry{
+					val:    uint32(cv),
+					offset: i,
+				}
+			}
+		}
+		e.lastDictID = d.id
+	}
+	// Reset table to initial state
+	e.cur = e.maxMatchOff
+	copy(e.longTable[:], e.dictLongTable)
 }

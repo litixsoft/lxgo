@@ -162,12 +162,9 @@ func (qu *queue) IsActive() bool {
 // queue.Send(lxAudit.AuditEntry{...})
 // IBaseRepoAudit
 func (qu *queue) Send(elem interface{}) {
-	//switch val := elem.(type) {
-	//case bson.M:
-	//
-	//
-	//}
-	qu.JobChan <- elem
+	go func(elem interface{}) {
+		qu.JobChan <- elem
+	}(elem)
 }
 
 // RequestAudit send entry or entries to audit service.

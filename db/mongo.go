@@ -3,7 +3,6 @@ package lxDb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -116,10 +115,6 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 		}
 	}
 
-	v, ok := doc.(interface{})
-	fmt.Print(ok)
-	fmt.Print(v)
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -129,6 +124,18 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	}
 
 	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
+
+		// Convert doc to bson.M
+		bm, err := ToBsonMap(doc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Add _id to data
+		if _, ok := bm[subIdName]; !ok {
+			bm[subIdName] = res.InsertedID
+		}
+
 		// Start audit
 		//go func() {
 		//	// Convert for audit
@@ -139,18 +146,19 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 		//	}
 		//}()
 
+		//Host       string      `json:"host"`
+		//Collection string      `json:"collection"`
+		//Action     string      `json:"action"`
+		//User       interface{} `json:"user"`
+		//Data       interface{} `json:"data"`
+
 		repo.audit.Send(bson.M{
 			"collection": repo.collection.Name(),
 			"action":     Insert,
 			"user":       authUser,
-			"data":       doc,
-			"InsertedID": bson.M{subIdName: res.InsertedID},
+			"data":       bm,
 		})
-
-		// Check id exists and not empty
-		//if _, ok := bm[subIdName]; !ok {
-		//	bm[subIdName] = res.InsertedID
-		//}
+		//repo.collection.Name(), Insert authUser, bm)
 
 		// Write to logger
 		//if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {

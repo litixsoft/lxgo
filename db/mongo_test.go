@@ -297,7 +297,6 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	testUser := TestUser{Name: "TestName", Email: "test@test.de"}
 
 	t.Run("without_audit", func(t *testing.T) {
-		t.Log("without audit")
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
@@ -315,7 +314,6 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		its.Equal(testUser.IsActive, checkUser.IsActive)
 	})
 	t.Run("with_audit", func(t *testing.T) {
-		t.Log("with audit")
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
@@ -332,27 +330,28 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		doAction := func(elem interface{}) {
 			switch val := elem.(type) {
 			case bson.M:
-				if val["action"] == "insert" {
-					bm, err := lxDb.ToBsonMap(val["data"])
-					its.NoError(err)
-					for k, v := range val["InsertedID"].(bson.M) {
-						if _, ok := bm[k]; !ok {
-							bm[k] = v
-							//chkInsertedId = v
-						}
-					}
-					val["data"] = bm
+				//	if val["action"] == "insert" {
+				//		bm, err := lxDb.ToBsonMap(val["data"])
+				//		its.NoError(err)
+				//		for k, v := range val["InsertedID"].(bson.M) {
+				//			if _, ok := bm[k]; !ok {
+				//				bm[k] = v
+				//				chkInsertedId = v
+				//			}
+				//		}
+				//		val["data"] = bm
+				//
 
-					// Check
-					its.Equal(lxDb.Insert, val["action"].(string))
-					//its.Equal(au, val["user"])
-				}
+				//chkInsertedId := val["data"].(bson.M)[""]
+
+				// Check
+				its.Equal(lxDb.Insert, val["action"].(string))
+				its.Equal(au, val["user"])
+				its.Equal(testUser.Email, val["data"].(bson.M)["email"])
+			//	}
 			default:
 				t.Fail()
 			}
-
-			//its.Equal(testUser.Name, data.(bson.M)["name"])
-			//its.Equal(testUser.Email, data.(bson.M)["email"])
 		}
 
 		// Configure mock
@@ -364,6 +363,9 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 		//done := make(chan bool)
 		sidName := &lxDb.SubIdName{Name: "_id"}
 		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(au), sidName)
+
+		// Check id
+		//its.Equal(chkInsertedId, res.(primitive.ObjectID))
 
 		//// Wait for close channel and check err
 		//<-done
