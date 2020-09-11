@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/golang/mock/gomock"
+	lxAudit "github.com/litixsoft/lxgo/audit"
 	lxDb "github.com/litixsoft/lxgo/db"
 	lxDbMocks "github.com/litixsoft/lxgo/db/mocks"
 	lxHelper "github.com/litixsoft/lxgo/helper"
+	lxLog "github.com/litixsoft/lxgo/log"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -162,6 +164,14 @@ func setupDataLocale(db *mongo.Database) []TestUserLocale {
 	return users
 }
 
+func getTestUser() TestUser {
+	return TestUser{Name: "TestName", Email: "test@test.de"}
+}
+
+func getTestAuditUser() *bson.M {
+	return &bson.M{"name": "TestAuditUser"}
+}
+
 func TestGetMongoDbClient(t *testing.T) {
 	its := assert.New(t)
 
@@ -274,7 +284,7 @@ func TestMongoBaseRepo_CreateIndexes(t *testing.T) {
 	})
 }
 
-func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
+func TestMongoBaseRepo_InsertOne(t *testing.T) {
 	its := assert.New(t)
 
 	client, err := lxDb.GetMongoDbClient(dbHost)
@@ -291,134 +301,69 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 	// Test the base repo with mock
 	base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
 
-	// AuditAuth user
-	au := &bson.M{"name": "Timo Liebetrau"}
-
-	testUser := TestUser{Name: "TestName", Email: "test@test.de"}
-
 	t.Run("without_audit", func(t *testing.T) {
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
-		// Channel for close
+		// Test InsertOne
+		testUser := getTestUser()
 		res, err := base.InsertOne(&testUser, time.Second*10, options.InsertOne())
 		its.NoError(err)
 
+		// Add InsertedID to TestUser
+		testUser.Id = res.(primitive.ObjectID)
+
 		// Check insert result id
 		var checkUser TestUser
-		filter := bson.D{{"_id", res.(primitive.ObjectID)}}
+		filter := bson.D{{"_id", testUser.Id}}
 		its.NoError(base.FindOne(filter, &checkUser))
 
-		its.Equal(testUser.Name, checkUser.Name)
-		its.Equal(testUser.Email, checkUser.Email)
-		its.Equal(testUser.IsActive, checkUser.IsActive)
+		its.Equal(testUser, checkUser)
 	})
 	t.Run("with_audit", func(t *testing.T) {
 		// Drop for test
 		its.NoError(collection.Drop(context.Background()))
 
-		// Test the base repo with mock
-		mockCtrl := gomock.NewController(t)
-		defer mockCtrl.Finish()
-		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
-
-		// Repo with audit mocks
-		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+		// Test data
+		testUser := getTestUser()
+		auditUser := getTestAuditUser()
+		sidName := &lxDb.SubIdName{Name: "_id"}
 
 		// Check mock params
-		//var chkInsertedId interface{}
+		var chkAuditDataUserId primitive.ObjectID
 		doAction := func(elem interface{}) {
 			switch val := elem.(type) {
 			case bson.M:
-				//	if val["action"] == "insert" {
-				//		bm, err := lxDb.ToBsonMap(val["data"])
-				//		its.NoError(err)
-				//		for k, v := range val["InsertedID"].(bson.M) {
-				//			if _, ok := bm[k]; !ok {
-				//				bm[k] = v
-				//				chkInsertedId = v
-				//			}
-				//		}
-				//		val["data"] = bm
-				//
-
-				//chkInsertedId := val["data"].(bson.M)[""]
+				// Check user id
+				chkAuditDataUserId = val["data"].(bson.M)[sidName.Name].(primitive.ObjectID)
 
 				// Check
 				its.Equal(lxDb.Insert, val["action"].(string))
-				its.Equal(au, val["user"])
+				its.Equal(auditUser, val["user"])
 				its.Equal(testUser.Email, val["data"].(bson.M)["email"])
-			//	}
 			default:
 				t.Fail()
 			}
 		}
 
 		// Configure mock
-		//mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(doAction).Times(1)
 		mockIBaseRepoAudit.EXPECT().IsActive().Return(true).Times(1)
 		mockIBaseRepoAudit.EXPECT().Send(gomock.Any()).Return().Do(doAction).Times(1)
 
-		// Channel for close and run test
-		//done := make(chan bool)
-		sidName := &lxDb.SubIdName{Name: "_id"}
-		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(au), sidName)
-
-		// Check id
-		//its.Equal(chkInsertedId, res.(primitive.ObjectID))
-
-		//// Wait for close channel and check err
-		//<-done
+		// Test InsertOne
+		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(auditUser), sidName)
 		its.NoError(err)
 
-		// Check insert result id
-		var checkUser TestUser
-		filter := bson.D{{"_id", res.(primitive.ObjectID)}}
-		its.NoError(base.FindOne(filter, &checkUser))
+		// Add InsertedID to TestUser and check with audit
+		testUser.Id = res.(primitive.ObjectID)
+		its.Equal(testUser.Id, chkAuditDataUserId)
 
-		//its.Equal(ident, checkUser.Id)
-		its.Equal(testUser.Name, checkUser.Name)
-		its.Equal(testUser.Email, checkUser.Email)
-		its.Equal(testUser.IsActive, checkUser.IsActive)
+		// Check insert user
+		var checkUser TestUser
+		filter := bson.D{{"_id", testUser.Id}}
+		its.NoError(base.FindOne(filter, &checkUser))
+		its.Equal(testUser, checkUser)
 	})
-	//	t.Run("with audit error", func(t *testing.T) {
-	//		// Drop for test
-	//		its.NoError(collection.Drop(context.Background()))
-	//
-	//		// Test the base repo with mock
-	//		mockCtrl := gomock.NewController(t)
-	//		defer mockCtrl.Finish()
-	//		mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
-	//
-	//		// Repo with audit mocks
-	//		base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
-	//
-	//		// AuthUser
-	//		au := &bson.M{"name": "Timo Liebetrau"}
-	//
-	//		// Check mock params
-	//		doAction := func(act string, usr, data interface{}, elem ...interface{}) {
-	//			its.Equal(lxDb.Insert, act)
-	//			its.Equal(au, usr)
-	//			its.Equal(testUser.Name, data.(bson.M)["name"])
-	//			its.Equal(testUser.Email, data.(bson.M)["email"])
-	//		}
-	//
-	//		// Configure mock
-	//		mockIBaseRepoAudit.EXPECT().LogEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test-error")).Do(doAction).Times(1)
-	//
-	//		// Channel for close and run test
-	//		done := make(chan bool)
-	//		chanErr := make(chan error)
-	//		_, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(au), done, chanErr)
-	//
-	//		// Wait for close and error channel from audit thread
-	//		its.Error(<-chanErr)
-	//		its.True(<-done)
-	//
-	//		// Check update return
-	//		its.NoError(err)
-	//	})
 }
 
 //func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
@@ -2585,3 +2530,80 @@ func TestMongoDbBaseRepo_InsertOne(t *testing.T) {
 //		its.Equal(testUsers, result)
 //	})
 //}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO TestMongoBaseRepo_InsertOne2
+// TODO manual real test without mocks for check audit entry
+// TODO Important, always comment out and start manually
+// TODO comment in again after the test
+
+func TestMongoBaseRepo_InsertOne2(t *testing.T) {
+	its := assert.New(t)
+
+	dbHost := "mongodb://127.0.0.1"
+	auditHost := "http://localhost:3000"
+	// Todo important, set key only local for test, delete in audit after test
+	authKey := "69b85f72-4568-483a-8f24-fc7a140a46ad"
+
+	lxLog.InitLogger(
+		os.Stdout,
+		"debug",
+		"text")
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	lxHelper.HandlePanicErr(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Start audit worker
+	logEntry := lxLog.GetLogger().WithField("client", "test")
+	audit := lxAudit.NewQueue("test-client", auditHost, authKey, logEntry)
+
+	// StartWorker with ErrChan param for testing
+	numWorkers := 2
+	for i := 0; i < numWorkers; i++ {
+		audit.StartWorker(audit.JobChan, audit.KillChan, audit.ErrChan)
+	}
+
+	// Test the base repo with mock
+	base := lxDb.NewMongoBaseRepo(collection, audit)
+
+	t.Run("with_audit", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		// Test data
+		testUser := getTestUser()
+		auditUser := getTestAuditUser()
+		sidName := &lxDb.SubIdName{Name: "_id"}
+
+		// Test InsertOne
+		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(auditUser), sidName)
+
+		// wait for worker
+		its.NoError(<-audit.ErrChan)
+		its.NoError(err)
+
+		// Add InsertedID to TestUser and check with audit
+		testUser.Id = res.(primitive.ObjectID)
+
+		// Check insert user
+		var checkUser TestUser
+		filter := bson.D{{"_id", testUser.Id}}
+		its.NoError(base.FindOne(filter, &checkUser))
+		its.Equal(testUser, checkUser)
+
+		// Todo check the audit_service local for entry
+		t.Log("action", lxDb.Insert)
+		t.Log("auditUser", auditUser)
+		t.Log("testUser", checkUser)
+	})
+
+	// Stop the worker
+	close(audit.KillChan)
+	time.Sleep(time.Duration(time.Millisecond * 125))
+}

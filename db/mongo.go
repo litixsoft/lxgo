@@ -94,8 +94,6 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
@@ -106,10 +104,6 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		//case chan bool:
-		//	done = val
-		//case chan error:
-		//	chanErr = val
 		case *SubIdName:
 			subIdName = val.Name
 		}
@@ -136,37 +130,13 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			bm[subIdName] = res.InsertedID
 		}
 
-		// Start audit
-		//go func() {
-		//	// Convert for audit
-		//	bm, err := ToBsonMap(doc)
-		//	if err != nil {
-		//		//log.Printf("insert audit error:%v\n", err)
-		//		return
-		//	}
-		//}()
-
-		//Host       string      `json:"host"`
-		//Collection string      `json:"collection"`
-		//Action     string      `json:"action"`
-		//User       interface{} `json:"user"`
-		//Data       interface{} `json:"data"`
-
+		// Send to audit
 		repo.audit.Send(bson.M{
 			"collection": repo.collection.Name(),
 			"action":     Insert,
 			"user":       authUser,
 			"data":       bm,
 		})
-		//repo.collection.Name(), Insert authUser, bm)
-
-		// Write to logger
-		//if err := repo.audit.LogEntry(Insert, authUser, bm); err != nil {
-		//	log.Printf("insert audit error:%v\n", err)
-		//	chanErr <- err
-		//	return
-		//}
-		//}()
 	}
 
 	return res.InsertedID, nil
@@ -189,10 +159,6 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		//case chan bool:
-		//	done = val
-		//case chan error:
-		//	chanErr = val
 		case *SubIdName:
 			subIdName = val.Name
 		}
@@ -201,8 +167,8 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 	// Return UpdateManyResult
 	insertManyResult := new(InsertManyResult)
 
-	// Audit
-	if authUser != nil && repo.audit != nil {
+	// Audit with insert, when audit is active than insert one and audit
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// InsertOne func for audit insert many
 		insertOneFn := func(doc interface{}) (*mongo.InsertOneResult, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -211,7 +177,7 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 		}
 
 		// Array for audits
-		var auditEntries bson.A
+		var auditEntries []bson.M
 
 		// Insert docs and create log entries
 		for _, doc := range docs {
@@ -245,19 +211,24 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 			return insertManyResult, nil
 		}
 
-		// Start audit async
+		// Send to audit
 		go func() {
-			//defer func() {
-			//	done <- true
-			//}()
-			//
-			//// Write to logger
-			//if err := repo.audit.LogEntries(auditEntries); err != nil {
-			//	log.Printf("insert many audit error:%v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
+			repo.audit.Send(auditEntries)
 		}()
+
+		// Start audit async
+		//go func() {
+		//	//defer func() {
+		//	//	done <- true
+		//	//}()
+		//	//
+		//	//// Write to logger
+		//	//if err := repo.audit.LogEntries(auditEntries); err != nil {
+		//	//	log.Printf("insert many audit error:%v\n", err)
+		//	//	chanErr <- err
+		//	//	return
+		//	//}
+		//}()
 
 		return insertManyResult, nil
 	}

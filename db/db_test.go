@@ -75,7 +75,3 @@ func TestToBsonMap(t *testing.T) {
 	its.Equal(testType.FirstName, doc["firstname"])
 	its.Equal(testType.LastName, doc["lastname"])
 }
-
-func TestToBsonMap2(t *testing.T) {
-
-}

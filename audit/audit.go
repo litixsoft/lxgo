@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson"
+
 	//"errors"
 	"fmt"
 	//"github.com/sirupsen/logrus"
@@ -112,7 +114,7 @@ func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errCha
 			select {
 			case j := <-jobChan:
 				// send the entries or entry to audit service
-				err := RequestAudit(j, qu.clientHost, qu.auditHost, qu.auditHostAuthKey)
+				err := RequestAudit(j, qu.auditHost, qu.auditHostAuthKey)
 				if err != nil {
 					// log error for manual insert
 					jsonJob, jsonErr := json.Marshal(j)
@@ -155,23 +157,46 @@ func (qu *queue) IsActive() bool {
 	return qu.GetCountOfRunningWorkers() > 0
 }
 
-// Send async send elem to worker,
-// elm must be AuditEntry or AuditEntries type
+// Send async convert and send elem to worker,
+// elm must be bson.M or []bson.M type
 // Example:
 // queue := NewQueue(....)
-// queue.Send(lxAudit.AuditEntry{...})
+// queue.Send(bson.M{...})
 // IBaseRepoAudit
 func (qu *queue) Send(elem interface{}) {
-	go func(elem interface{}) {
-		qu.JobChan <- elem
-	}(elem)
+	go func() {
+		switch val := elem.(type) {
+		case bson.M:
+			// Send entry to worker
+			qu.JobChan <- AuditEntry{
+				Host:       qu.clientHost,
+				Collection: val["collection"].(string),
+				Action:     val["action"].(string),
+				User:       val["user"],
+				Data:       val["data"],
+			}
+		case []bson.M:
+			entries := make(AuditEntries, len(val))
+			for i, e := range val {
+				entries[i] = AuditEntry{
+					Host:       qu.clientHost,
+					Collection: e["collection"].(string),
+					Action:     e["action"].(string),
+					User:       e["user"],
+					Data:       e["data"],
+				}
+			}
+			// Send entries to worker
+			qu.JobChan <- entries
+		}
+	}()
 }
 
 // RequestAudit send entry or entries to audit service.
 // This function can also be used independently of the worker.
 // Example:
 // err := lxAudit.RequestAudit(...)
-func RequestAudit(elem interface{}, clientHost, auditHost, auditAuthKey string, timeout ...time.Duration) error {
+func RequestAudit(elem interface{}, auditHost, auditAuthKey string, timeout ...time.Duration) error {
 	to := DefaultTimeout
 	if len(timeout) > 0 {
 		to = timeout[0]
@@ -185,12 +210,7 @@ func RequestAudit(elem interface{}, clientHost, auditHost, auditAuthKey string, 
 		// Wrong type return with error
 		return ErrAuditEntryType
 
-	case []AuditEntry:
-		// Add host to entries
-		for i := range val {
-			val[i].Host = clientHost
-		}
-
+	case AuditEntries:
 		// Convert entries to json
 		jsonBody, err := json.Marshal(val)
 		if err != nil {
@@ -204,9 +224,6 @@ func RequestAudit(elem interface{}, clientHost, auditHost, auditAuthKey string, 
 		}
 
 	case AuditEntry:
-		// Add host to entry
-		val.Host = clientHost
-
 		// Convert entry to json
 		jsonBody, err := json.Marshal(val)
 		if err != nil {
