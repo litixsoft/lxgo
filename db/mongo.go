@@ -147,8 +147,6 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 	timeout := DefaultTimeout
 	opts := &options.InsertManyOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
@@ -202,7 +200,11 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 				}
 
 				// Audit only is inserted,
-				auditEntries = append(auditEntries, bson.M{"action": Insert, "user": authUser, "data": bm})
+				auditEntries = append(auditEntries, bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Insert,
+					"user":       authUser,
+					"data":       bm})
 			}
 		}
 
@@ -212,23 +214,7 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 		}
 
 		// Send to audit
-		go func() {
-			repo.audit.Send(auditEntries)
-		}()
-
-		// Start audit async
-		//go func() {
-		//	//defer func() {
-		//	//	done <- true
-		//	//}()
-		//	//
-		//	//// Write to logger
-		//	//if err := repo.audit.LogEntries(auditEntries); err != nil {
-		//	//	log.Printf("insert many audit error:%v\n", err)
-		//	//	chanErr <- err
-		//	//	return
-		//	//}
-		//}()
+		repo.audit.Send(auditEntries)
 
 		return insertManyResult, nil
 	}

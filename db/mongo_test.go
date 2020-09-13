@@ -3,12 +3,12 @@ package lxDb_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/golang/mock/gomock"
-	lxAudit "github.com/litixsoft/lxgo/audit"
 	lxDb "github.com/litixsoft/lxgo/db"
 	lxDbMocks "github.com/litixsoft/lxgo/db/mocks"
 	lxHelper "github.com/litixsoft/lxgo/helper"
-	lxLog "github.com/litixsoft/lxgo/log"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -21,29 +21,6 @@ import (
 	"testing"
 	"time"
 )
-
-//
-//import (
-//	"context"
-//	"encoding/json"
-//	"errors"
-//	"fmt"
-//	"github.com/golang/mock/gomock"
-//	lxDb "github.com/litixsoft/lxgo/db"
-//	lxDbMocks "github.com/litixsoft/lxgo/db/mocks"
-//	"github.com/litixsoft/lxgo/helper"
-//	"github.com/stretchr/testify/assert"
-//	"go.mongodb.org/mongo-driver/bson"
-//	"go.mongodb.org/mongo-driver/bson/primitive"
-//	"go.mongodb.org/mongo-driver/mongo"
-//	"go.mongodb.org/mongo-driver/mongo/options"
-//	"io/ioutil"
-//	"log"
-//	"os"
-//	"sort"
-//	"testing"
-//	"time"
-//)
 
 type TestUser struct {
 	Id       primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
@@ -164,8 +141,49 @@ func setupDataLocale(db *mongo.Database) []TestUserLocale {
 	return users
 }
 
-func getTestUser() TestUser {
-	return TestUser{Name: "TestName", Email: "test@test.de"}
+func getTestUsers() []interface{} {
+	testUsers := make([]interface{}, 0)
+	for i := 0; i < 10; i++ {
+		testUsers = append(testUsers, TestUser{
+			Name:  fmt.Sprintf("TestName_%d", i),
+			Email: fmt.Sprintf("test_%d@test.de", i)})
+	}
+
+	return testUsers
+}
+
+func findIDInTestUserArr(vs []TestUser, t interface{}) int {
+	for i, v := range vs {
+		if v.Id == t {
+			return i
+		}
+	}
+	return -1
+}
+
+func findUserInTestUserArr(vs []TestUser, email, name string) int {
+	for i, v := range vs {
+		if v.Email == email && v.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func findUserInBsonMArr(vs []bson.M, email, name string) int {
+	for i, v := range vs {
+		chkEmail, ok1 := v["data"].(bson.M)["email"].(string)
+		chkName, ok2 := v["data"].(bson.M)["name"].(string)
+
+		if !ok1 || !ok2 {
+			return -1
+		}
+
+		if chkEmail == email && chkName == name {
+			return i
+		}
+	}
+	return -1
 }
 
 func getTestAuditUser() *bson.M {
@@ -306,7 +324,7 @@ func TestMongoBaseRepo_InsertOne(t *testing.T) {
 		its.NoError(collection.Drop(context.Background()))
 
 		// Test InsertOne
-		testUser := getTestUser()
+		testUser := getTestUsers()[1].(TestUser)
 		res, err := base.InsertOne(&testUser, time.Second*10, options.InsertOne())
 		its.NoError(err)
 
@@ -325,7 +343,7 @@ func TestMongoBaseRepo_InsertOne(t *testing.T) {
 		its.NoError(collection.Drop(context.Background()))
 
 		// Test data
-		testUser := getTestUser()
+		testUser := getTestUsers()[1].(TestUser)
 		auditUser := getTestAuditUser()
 		sidName := &lxDb.SubIdName{Name: "_id"}
 
@@ -338,9 +356,11 @@ func TestMongoBaseRepo_InsertOne(t *testing.T) {
 				chkAuditDataUserId = val["data"].(bson.M)[sidName.Name].(primitive.ObjectID)
 
 				// Check
+				its.Equal(TestCollection, val["collection"])
 				its.Equal(lxDb.Insert, val["action"].(string))
 				its.Equal(auditUser, val["user"])
 				its.Equal(testUser.Email, val["data"].(bson.M)["email"])
+				its.Equal(testUser.Name, val["data"].(bson.M)["name"])
 			default:
 				t.Fail()
 			}
@@ -366,323 +386,270 @@ func TestMongoBaseRepo_InsertOne(t *testing.T) {
 	})
 }
 
-//func TestMongoDbBaseRepo_InsertMany(t *testing.T) {
-//	its := assert.New(t)
-//
-//	client, err := lxDb.GetMongoDbClient(dbHost)
-//	its.NoError(err)
-//
-//	db := client.Database(TestDbName)
-//	collection := db.Collection(TestCollection)
-//
-//	// Mock for base repo
-//	mockCtrl := gomock.NewController(t)
-//	defer mockCtrl.Finish()
-//	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
-//
-//	// Test the base repo with mock
-//	base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
-//
-//	// AuditAuth user
-//	au := &bson.M{"name": "Timo Liebetrau"}
-//
-//	t.Run("insert many", func(t *testing.T) {
-//		// Drop for test
-//		its.NoError(collection.Drop(context.Background()))
-//
-//		testUsers := make([]interface{}, 0)
-//		for i := 0; i < 5; i++ {
-//			name := fmt.Sprintf("TestName%d", i)
-//			email := fmt.Sprintf("test%d@test.de", i)
-//			testUsers = append(testUsers, TestUser{Name: name, Email: email})
-//		}
-//
-//		// Test the base repo
-//		res, err := base.InsertMany(testUsers, time.Second*10, options.InsertMany())
-//		its.NoError(err)
-//		its.Equal(5, len(res.InsertedIDs))
-//		its.Equal(int64(0), res.FailedCount)
-//
-//		// Find and compare
-//		var checkUsers []TestUser
-//		err = base.Find(bson.D{}, &checkUsers)
-//		its.NoError(err)
-//
-//		// Check users
-//		for i, v := range checkUsers {
-//			its.Equal(testUsers[i].(TestUser).Name, v.Name)
-//			its.Equal(testUsers[i].(TestUser).Email, v.Email)
-//		}
-//
-//		// Check ids
-//		for _, id := range res.InsertedIDs {
-//			var res TestUser
-//			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
-//			its.Equal(id, res.Id)
-//		}
-//	})
-//	t.Run("with audit", func(t *testing.T) {
-//		// Drop for test
-//		its.NoError(collection.Drop(context.Background()))
-//
-//		testUsers := make([]interface{}, 0)
-//		for i := 0; i < 5; i++ {
-//			name := fmt.Sprintf("TestName%d", i)
-//			email := fmt.Sprintf("test%d@test.de", i)
-//			testUsers = append(testUsers, TestUser{Name: name, Email: email})
-//		}
-//
-//		// Check mock params
-//		doAction := func(entries []interface{}, elem ...interface{}) {
-//			// Log entries for audit should be 5
-//			its.Len(entries, 5)
-//		}
-//
-//		// Configure mock
-//		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(nil).Do(doAction).Times(1)
-//
-//		// Test the base repo
-//		done := make(chan bool)
-//		sidName := &lxDb.SubIdName{Name: "_id"}
-//		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au), done, sidName)
-//
-//		// Wait for close channel and check err
-//		<-done
-//
-//		its.NoError(err)
-//		its.Equal(5, len(res.InsertedIDs))
-//		its.Equal(int64(0), res.FailedCount)
-//
-//		// Find and compare
-//		var checkUsers []TestUser
-//		err = base.Find(bson.D{}, &checkUsers)
-//		its.NoError(err)
-//
-//		// Check users
-//		for i, v := range checkUsers {
-//			its.Equal(testUsers[i].(TestUser).Name, v.Name)
-//			its.Equal(testUsers[i].(TestUser).Email, v.Email)
-//		}
-//
-//		// Check ids
-//		for _, id := range res.InsertedIDs {
-//			var res TestUser
-//			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
-//			its.Equal(id, res.Id)
-//		}
-//	})
-//	t.Run("with audit error", func(t *testing.T) {
-//		// Drop for test
-//		its.NoError(collection.Drop(context.Background()))
-//
-//		testUsers := make([]interface{}, 0)
-//		for i := 0; i < 5; i++ {
-//			name := fmt.Sprintf("TestName%d", i)
-//			email := fmt.Sprintf("test%d@test.de", i)
-//			testUsers = append(testUsers, TestUser{Name: name, Email: email})
-//		}
-//
-//		// Check mock params
-//		doAction := func(entries []interface{}, elem ...interface{}) {
-//			// Log entries for audit should be 5
-//			its.Len(entries, 5)
-//		}
-//
-//		mockIBaseRepoAudit.EXPECT().LogEntries(gomock.Any()).Return(
-//			errors.New("test-error")).Do(doAction).Times(1)
-//
-//		// Test the base repo
-//		done := make(chan bool)
-//		chanErr := make(chan error)
-//		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au), done, chanErr)
-//
-//		// Wait for close and error channel from audit thread
-//		its.Error(<-chanErr)
-//		its.True(<-done)
-//
-//		its.NoError(err)
-//		its.Equal(5, len(res.InsertedIDs))
-//		its.Equal(int64(0), res.FailedCount)
-//
-//		// Find and compare
-//		var checkUsers []TestUser
-//		err = base.Find(bson.D{}, &checkUsers)
-//		its.NoError(err)
-//
-//		// Check users
-//		for i, v := range checkUsers {
-//			its.Equal(testUsers[i].(TestUser).Name, v.Name)
-//			its.Equal(testUsers[i].(TestUser).Email, v.Email)
-//		}
-//
-//		// Check ids
-//		for _, id := range res.InsertedIDs {
-//			var res TestUser
-//			its.NoError(base.FindOne(bson.D{{"_id", id}}, &res))
-//			its.Equal(id, res.Id)
-//		}
-//	})
-//	t.Run("with audit empty inserts", func(t *testing.T) {
-//		// Drop for test
-//		its.NoError(collection.Drop(context.Background()))
-//
-//		testUsers := make([]interface{}, 0)
-//
-//		// Test the base repo
-//		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(au))
-//
-//		its.NoError(err)
-//		its.Equal(0, len(res.InsertedIDs))
-//		its.Equal(int64(0), res.FailedCount)
-//	})
-//}
-//
-//func TestMongoDbBaseRepo_CountDocuments(t *testing.T) {
-//	its := assert.New(t)
-//
-//	client, err := lxDb.GetMongoDbClient(dbHost)
-//	its.NoError(err)
-//
-//	db := client.Database(TestDbName)
-//	setupData(db)
-//
-//	// Test the base repo
-//	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-//	// is 13
-//	filter := bson.D{{"gender", "Female"}}
-//
-//	// Find options in other format
-//	// is 9
-//	fo := lxHelper.FindOptions{
-//		Skip:  int64(4),
-//		Limit: int64(10),
-//	}
-//
-//	// Get count
-//	res, err := base.CountDocuments(filter, fo.ToMongoCountOptions(), time.Second*10)
-//	its.NoError(err)
-//	its.Equal(int64(9), res)
-//}
-//
-//func TestMongoDbBaseRepo_EstimatedDocumentCount(t *testing.T) {
-//	its := assert.New(t)
-//
-//	client, err := lxDb.GetMongoDbClient(dbHost)
-//	its.NoError(err)
-//
-//	db := client.Database(TestDbName)
-//	testUsers := setupData(db)
-//
-//	// Test the base repo
-//	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-//
-//	// Get count
-//	res, err := base.EstimatedDocumentCount(time.Second*10, options.EstimatedDocumentCount())
-//	its.NoError(err)
-//	its.Equal(int64(len(testUsers)), res)
-//}
-//
-//func TestMongoDbBaseRepo_Find(t *testing.T) {
-//	its := assert.New(t)
-//
-//	client, err := lxDb.GetMongoDbClient(dbHost)
-//	its.NoError(err)
-//
-//	db := client.Database(TestDbName)
-//	testUsers := setupData(db)
-//
-//	// Create expectUsers for compare result
-//	skip := 5
-//	limit := 5
-//	y := 0
-//	var (
-//		expectUsers  []TestUser
-//		expectFemale []TestUser
-//	)
-//	for i := range testUsers {
-//		if testUsers[i].Gender == "Female" {
-//			expectFemale = append(expectFemale, testUsers[i])
-//		}
-//		if i > (skip-1) && y < limit {
-//			expectUsers = append(expectUsers, testUsers[i])
-//			y++
-//		}
-//	}
-//
-//	// Test the base repo
-//	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-//
-//	t.Run("with options", func(t *testing.T) {
-//		// Find options in other format
-//		fo := lxHelper.FindOptions{
-//			Sort:  map[string]int{"name": 1},
-//			Skip:  int64(5),
-//			Limit: int64(5),
-//		}
-//
-//		// Find and compare with converted find options
-//		filter := bson.D{}
-//		var result []TestUser
-//		err = base.Find(filter, &result, fo.ToMongoFindOptions(), time.Second*10)
-//		its.NoError(err)
-//		its.Equal(expectUsers, result)
-//	})
-//	t.Run("with filter and options", func(t *testing.T) {
-//		// Find options in other format
-//		fo := lxHelper.FindOptions{
-//			Sort: map[string]int{"name": 1},
-//		}
-//		filter := bson.D{{"gender", "Female"}}
-//		var result []TestUser
-//		err = base.Find(filter, &result, fo.ToMongoFindOptions())
-//		its.NoError(err)
-//		its.Equal(expectFemale, result)
-//	})
-//}
-//
-//func TestMongoDbBaseRepo_FindOne(t *testing.T) {
-//	its := assert.New(t)
-//
-//	client, err := lxDb.GetMongoDbClient(dbHost)
-//	its.NoError(err)
-//
-//	db := client.Database(TestDbName)
-//	testUsers := setupData(db)
-//	testSkip := int64(5)
-//
-//	// Test the base repo
-//	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
-//
-//	t.Run("with options", func(t *testing.T) {
-//		// Find options in other format
-//		fo := lxHelper.FindOptions{
-//			Sort: map[string]int{"name": 1},
-//			Skip: testSkip,
-//		}
-//
-//		// Find and compare with converted find options
-//		filter := bson.D{}
-//		var result TestUser
-//		err = base.FindOne(filter, &result, fo.ToMongoFindOneOptions(), time.Second*10)
-//		its.NoError(err)
-//		its.Equal(testUsers[testSkip], result)
-//	})
-//	t.Run("with filter", func(t *testing.T) {
-//		filter := bson.D{{"email", testUsers[testSkip].Email}}
-//		var result TestUser
-//		err = base.FindOne(filter, &result)
-//		its.NoError(err)
-//		its.Equal(testUsers[testSkip], result)
-//	})
-//	t.Run("not found error", func(t *testing.T) {
-//		filter := bson.D{{"email", "unknown@email"}}
-//		var result TestUser
-//		err = base.FindOne(filter, &result)
-//		its.Error(err)
-//		its.True(errors.Is(err, lxDb.ErrNotFound))
-//	})
-//}
-//
+func TestMongoBaseRepo_InsertMany(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	collection := db.Collection(TestCollection)
+
+	// Mock for base repo
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockIBaseRepoAudit := lxDbMocks.NewMockIBaseRepoAudit(mockCtrl)
+
+	// Test the base repo with mock
+	base := lxDb.NewMongoBaseRepo(collection, mockIBaseRepoAudit)
+
+	t.Run("without_audit", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+		testUsers := getTestUsers()
+
+		// Test the base repo
+		res, err := base.InsertMany(testUsers, time.Second*10, options.InsertMany())
+		its.NoError(err)
+		its.Equal(10, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+
+		// Find and compare
+		var checkUsers []TestUser
+		err = base.Find(bson.D{}, &checkUsers)
+		its.NoError(err)
+
+		// Check users, find test user in checkUsers
+		for _, v := range testUsers {
+			its.True(findUserInTestUserArr(checkUsers, v.(TestUser).Email, v.(TestUser).Name) > -1)
+		}
+
+		// Check ids
+		for _, id := range res.InsertedIDs {
+			its.True(findIDInTestUserArr(checkUsers, id) > -1)
+		}
+	})
+
+	t.Run("with_audit", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		// Test data
+		testUsers := getTestUsers()
+		auditUser := getTestAuditUser()
+		sidName := &lxDb.SubIdName{Name: "_id"}
+
+		doAction := func(elem interface{}) {
+			switch val := elem.(type) {
+			case []bson.M:
+				its.Len(val, 10)
+				its.Equal(TestCollection, val[1]["collection"])
+				its.Equal(lxDb.Insert, val[1]["action"])
+
+				its.Equal(auditUser, val[1]["user"])
+
+				// Check users
+				// Find user in test users arr
+				for _, v := range testUsers {
+					its.True(findUserInBsonMArr(val, v.(TestUser).Email, v.(TestUser).Name) > -1)
+				}
+			default:
+				t.Fail()
+			}
+		}
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().IsActive().Return(true).Times(1)
+		mockIBaseRepoAudit.EXPECT().Send(gomock.Any()).Return().Do(doAction).Times(1)
+
+		// Test InsertMany
+		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(auditUser), sidName)
+		its.NoError(err)
+		its.Equal(10, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+
+		// Find users after insert and compare
+		var checkUsers []TestUser
+		err = base.Find(bson.D{}, &checkUsers)
+		its.NoError(err)
+
+		// Check users
+		// Find check user in test users arr
+		for _, v := range testUsers {
+			its.True(findUserInTestUserArr(checkUsers, v.(TestUser).Email, v.(TestUser).Name) > -1)
+		}
+
+		// Find result id in check users
+		for _, id := range res.InsertedIDs {
+			its.True(findIDInTestUserArr(checkUsers, id) > -1)
+		}
+	})
+
+	t.Run("empty_audits", func(t *testing.T) {
+		// Drop for test
+		its.NoError(collection.Drop(context.Background()))
+
+		testUsers := make([]interface{}, 0)
+		auditUser := getTestAuditUser()
+
+		// Configure mock
+		mockIBaseRepoAudit.EXPECT().IsActive().Return(true).Times(1)
+
+		// Test the base repo
+		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(auditUser))
+
+		its.NoError(err)
+		its.Equal(0, len(res.InsertedIDs))
+		its.Equal(int64(0), res.FailedCount)
+	})
+}
+
+func TestMongoBaseRepo_CountDocuments(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	setupData(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+	// is 13
+	filter := bson.D{{"gender", "Female"}}
+
+	// Find options in other format
+	// is 9
+	fo := lxHelper.FindOptions{
+		Skip:  int64(4),
+		Limit: int64(10),
+	}
+
+	// Get count
+	res, err := base.CountDocuments(filter, fo.ToMongoCountOptions(), time.Second*10)
+	its.NoError(err)
+	its.Equal(int64(9), res)
+}
+
+func TestMongoBaseRepo_EstimatedDocumentCount(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupData(db)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+	// Get count
+	res, err := base.EstimatedDocumentCount(time.Second*10, options.EstimatedDocumentCount())
+	its.NoError(err)
+	its.Equal(int64(len(testUsers)), res)
+}
+
+func TestMongoBaseRepo_Find(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupData(db)
+
+	// Create expectUsers for compare result
+	skip := 5
+	limit := 5
+	y := 0
+	var (
+		expectUsers  []TestUser
+		expectFemale []TestUser
+	)
+	for i := range testUsers {
+		if testUsers[i].Gender == "Female" {
+			expectFemale = append(expectFemale, testUsers[i])
+		}
+		if i > (skip-1) && y < limit {
+			expectUsers = append(expectUsers, testUsers[i])
+			y++
+		}
+	}
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+	t.Run("with options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxHelper.FindOptions{
+			Sort:  map[string]int{"name": 1},
+			Skip:  int64(5),
+			Limit: int64(5),
+		}
+
+		// Find and compare with converted find options
+		filter := bson.D{}
+		var result []TestUser
+		err = base.Find(filter, &result, fo.ToMongoFindOptions(), time.Second*10)
+		its.NoError(err)
+		its.Equal(expectUsers, result)
+	})
+	t.Run("with filter and options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+		}
+		filter := bson.D{{"gender", "Female"}}
+		var result []TestUser
+		err = base.Find(filter, &result, fo.ToMongoFindOptions())
+		its.NoError(err)
+		its.Equal(expectFemale, result)
+	})
+}
+
+func TestMongoBaseRepo_FindOne(t *testing.T) {
+	its := assert.New(t)
+
+	client, err := lxDb.GetMongoDbClient(dbHost)
+	its.NoError(err)
+
+	db := client.Database(TestDbName)
+	testUsers := setupData(db)
+	testSkip := int64(5)
+
+	// Test the base repo
+	base := lxDb.NewMongoBaseRepo(db.Collection(TestCollection))
+
+	t.Run("with options", func(t *testing.T) {
+		// Find options in other format
+		fo := lxHelper.FindOptions{
+			Sort: map[string]int{"name": 1},
+			Skip: testSkip,
+		}
+
+		// Find and compare with converted find options
+		filter := bson.D{}
+		var result TestUser
+		err = base.FindOne(filter, &result, fo.ToMongoFindOneOptions(), time.Second*10)
+		its.NoError(err)
+		its.Equal(testUsers[testSkip], result)
+	})
+	t.Run("with filter", func(t *testing.T) {
+		filter := bson.D{{"email", testUsers[testSkip].Email}}
+		var result TestUser
+		err = base.FindOne(filter, &result)
+		its.NoError(err)
+		its.Equal(testUsers[testSkip], result)
+	})
+	t.Run("not found error", func(t *testing.T) {
+		filter := bson.D{{"email", "unknown@email"}}
+		var result TestUser
+		err = base.FindOne(filter, &result)
+		its.Error(err)
+		its.True(errors.Is(err, lxDb.ErrNotFound))
+	})
+}
+
 //func TestMongoBaseRepo_FindOneAndDelete(t *testing.T) {
 //	its := assert.New(t)
 //
@@ -2540,70 +2507,149 @@ func TestMongoBaseRepo_InsertOne(t *testing.T) {
 // TODO Important, always comment out and start manually
 // TODO comment in again after the test
 
-func TestMongoBaseRepo_InsertOne2(t *testing.T) {
-	its := assert.New(t)
+//func TestMongoBaseRepo_InsertOne2(t *testing.T) {
+//	its := assert.New(t)
+//
+//	dbHost := "mongodb://127.0.0.1"
+//	auditHost := "http://localhost:3000"
+//	// Todo important, set key only local for test, delete in audit after test
+//	authKey := "69b85f72-4568-483a-8f24-fc7a140a46ad"
+//
+//	lxLog.InitLogger(
+//		os.Stdout,
+//		"debug",
+//		"text")
+//
+//	client, err := lxDb.GetMongoDbClient(dbHost)
+//	lxHelper.HandlePanicErr(err)
+//
+//	db := client.Database(TestDbName)
+//	collection := db.Collection(TestCollection)
+//
+//	// Start audit worker
+//	logEntry := lxLog.GetLogger().WithField("client", "test")
+//	audit := lxAudit.NewQueue("test-client", auditHost, authKey, logEntry)
+//
+//	// StartWorker with ErrChan param for testing
+//	numWorkers := 2
+//	for i := 0; i < numWorkers; i++ {
+//		audit.StartWorker(audit.JobChan, audit.KillChan, audit.ErrChan)
+//	}
+//
+//	// Test the base repo with mock
+//	base := lxDb.NewMongoBaseRepo(collection, audit)
+//
+//	t.Run("with_audit", func(t *testing.T) {
+//		// Drop for test
+//		its.NoError(collection.Drop(context.Background()))
+//
+//		// Test data
+//		testUser := getTestUsers()[1].(TestUser)
+//		auditUser := getTestAuditUser()
+//		sidName := &lxDb.SubIdName{Name: "_id"}
+//
+//		// Test InsertOne
+//		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(auditUser), sidName)
+//
+//		// wait for worker
+//		its.NoError(<-audit.ErrChan)
+//		its.NoError(err)
+//
+//		// Add InsertedID to TestUser and check with audit
+//		testUser.Id = res.(primitive.ObjectID)
+//
+//		// Check insert user
+//		var checkUser TestUser
+//		filter := bson.D{{"_id", testUser.Id}}
+//		its.NoError(base.FindOne(filter, &checkUser))
+//		its.Equal(testUser, checkUser)
+//
+//		// Todo check the audit_service local for entry
+//		t.Log("action", lxDb.Insert)
+//		t.Log("auditUser", auditUser)
+//		t.Log("testUser", checkUser)
+//	})
+//
+//	// Stop the worker
+//	close(audit.KillChan)
+//	time.Sleep(time.Duration(time.Millisecond * 125))
+//}
 
-	dbHost := "mongodb://127.0.0.1"
-	auditHost := "http://localhost:3000"
-	// Todo important, set key only local for test, delete in audit after test
-	authKey := "69b85f72-4568-483a-8f24-fc7a140a46ad"
+// TODO TestMongoBaseRepo_InsertMany2
+// TODO manual real test without mocks for check audit entry
+// TODO Important, always comment out and start manually
+// TODO comment in again after the test
 
-	lxLog.InitLogger(
-		os.Stdout,
-		"debug",
-		"text")
-
-	client, err := lxDb.GetMongoDbClient(dbHost)
-	lxHelper.HandlePanicErr(err)
-
-	db := client.Database(TestDbName)
-	collection := db.Collection(TestCollection)
-
-	// Start audit worker
-	logEntry := lxLog.GetLogger().WithField("client", "test")
-	audit := lxAudit.NewQueue("test-client", auditHost, authKey, logEntry)
-
-	// StartWorker with ErrChan param for testing
-	numWorkers := 2
-	for i := 0; i < numWorkers; i++ {
-		audit.StartWorker(audit.JobChan, audit.KillChan, audit.ErrChan)
-	}
-
-	// Test the base repo with mock
-	base := lxDb.NewMongoBaseRepo(collection, audit)
-
-	t.Run("with_audit", func(t *testing.T) {
-		// Drop for test
-		its.NoError(collection.Drop(context.Background()))
-
-		// Test data
-		testUser := getTestUser()
-		auditUser := getTestAuditUser()
-		sidName := &lxDb.SubIdName{Name: "_id"}
-
-		// Test InsertOne
-		res, err := base.InsertOne(&testUser, lxDb.SetAuditAuth(auditUser), sidName)
-
-		// wait for worker
-		its.NoError(<-audit.ErrChan)
-		its.NoError(err)
-
-		// Add InsertedID to TestUser and check with audit
-		testUser.Id = res.(primitive.ObjectID)
-
-		// Check insert user
-		var checkUser TestUser
-		filter := bson.D{{"_id", testUser.Id}}
-		its.NoError(base.FindOne(filter, &checkUser))
-		its.Equal(testUser, checkUser)
-
-		// Todo check the audit_service local for entry
-		t.Log("action", lxDb.Insert)
-		t.Log("auditUser", auditUser)
-		t.Log("testUser", checkUser)
-	})
-
-	// Stop the worker
-	close(audit.KillChan)
-	time.Sleep(time.Duration(time.Millisecond * 125))
-}
+//func TestMongoBaseRepo_InsertMany2(t *testing.T) {
+//	its := assert.New(t)
+//
+//	dbHost := "mongodb://127.0.0.1"
+//	auditHost := "http://localhost:3000"
+//	// Todo important, set key only local for test, delete in audit after test
+//	authKey := "69b85f72-4568-483a-8f24-fc7a140a46ad"
+//
+//	lxLog.InitLogger(
+//		os.Stdout,
+//		"debug",
+//		"text")
+//
+//	client, err := lxDb.GetMongoDbClient(dbHost)
+//	lxHelper.HandlePanicErr(err)
+//
+//	db := client.Database(TestDbName)
+//	collection := db.Collection(TestCollection)
+//
+//	// Start audit worker
+//	logEntry := lxLog.GetLogger().WithField("client", "test")
+//	audit := lxAudit.NewQueue("test-client", auditHost, authKey, logEntry)
+//
+//	// StartWorker with ErrChan param for testing
+//	numWorkers := 2
+//	for i := 0; i < numWorkers; i++ {
+//		audit.StartWorker(audit.JobChan, audit.KillChan, audit.ErrChan)
+//	}
+//
+//	// Test the base repo with mock
+//	base := lxDb.NewMongoBaseRepo(collection, audit)
+//
+//	t.Run("with_audit", func(t *testing.T) {
+//		// Drop for test
+//		its.NoError(collection.Drop(context.Background()))
+//
+//		// Test data
+//		testUsers := getTestUsers()
+//		auditUser := getTestAuditUser()
+//		sidName := &lxDb.SubIdName{Name: "_id"}
+//
+//		// Test InsertMany
+//		res, err := base.InsertMany(testUsers, lxDb.SetAuditAuth(auditUser), sidName)
+//
+//		// wait for worker
+//		its.NoError(<-audit.ErrChan)
+//
+//		// check
+//		its.NoError(err)
+//		its.Equal(10, len(res.InsertedIDs))
+//		its.Equal(int64(0), res.FailedCount)
+//
+//		// Find users after insert and compare
+//		var checkUsers []TestUser
+//		err = base.Find(bson.D{}, &checkUsers)
+//		its.NoError(err)
+//
+//		// Check users
+//		// Find check user in test users arr
+//		for _, v := range testUsers {
+//			its.True(findUserInTestUserArr(checkUsers, v.(TestUser).Email, v.(TestUser).Name) > -1)
+//		}
+//
+//		// Find result id in check users
+//		for _, id := range res.InsertedIDs {
+//			its.True(findIDInTestUserArr(checkUsers, id) > -1)
+//		}
+//	})
+//
+//	// Stop the worker
+//	close(audit.KillChan)
+//	time.Sleep(time.Duration(time.Millisecond * 125))
+//}

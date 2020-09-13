@@ -116,9 +116,9 @@ func TestQueue_StartWorker(t *testing.T) {
 		// Analyse last entry data field in logger
 		// Convert data field to []lxAudit.AuditEntry for comparison
 		var resultEntries lxAudit.AuditEntries
-		v, ok := hook.LastEntry().Data["job"].([]byte)
+		v, ok := hook.LastEntry().Data["audit"].(string)
 		its.True(ok)
-		err = json.Unmarshal(v, &resultEntries)
+		err = json.Unmarshal([]byte(v), &resultEntries)
 		its.NoError(err)
 
 		// Compare result with transferred data

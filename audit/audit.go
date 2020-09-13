@@ -123,8 +123,9 @@ func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errCha
 						// error by convert job to json print in raw
 						ctxLog.WithField("job", j).Error("error by RequestAudit can't convert job to json")
 					} else {
-						// log error as json for manual insert
-						qu.log.WithField("job", jsonJob).Error("error by RequestAudit, can't send entries")
+						// log error as encoded base64 json string for manual insert
+						qu.log.WithField("audit", string(jsonJob)).Error("error by send entries to audit")
+						//qu.log.WithField("audit", base64.StdEncoding.EncodeToString(jsonJob)).Error("error by send entries to audit")
 					}
 				}
 				// stop before end job
