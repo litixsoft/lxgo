@@ -22,7 +22,7 @@ func getTestEntries() lxAudit.AuditEntries {
 	// For testing log output by error,
 	// user and data with map[string]interface{}
 	var testEntries lxAudit.AuditEntries
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 10; i++ {
 		testEntries = append(testEntries, lxAudit.AuditEntry{
 			Host:       fmt.Sprintf("test_host_%d", i),
 			Collection: "test_collection",
@@ -254,7 +254,18 @@ func TestQueue_Send(t *testing.T) {
 	// StartWorker with ErrChan param for testing
 	queue.StartWorker(queue.JobChan, queue.KillChan, queue.ErrChan)
 
-	t.Run("entries", func(t *testing.T) {
+	t.Run("error_type", func(t *testing.T) {
+		// This error close send routine before send job to worker
+		testEntry := map[string]string{"foo": "bar"}
+		queue.Send(testEntry)
+
+		// Wait for error over the error channel
+		err := <-queue.ErrChan
+		its.Error(err)
+		t.Log(err)
+		its.True(errors.Is(err, lxAudit.ErrAuditEntryType))
+	})
+	t.Run("error_status_entries", func(t *testing.T) {
 		// Testing with error for check transport
 		queue.Send(testEntries)
 
@@ -263,7 +274,7 @@ func TestQueue_Send(t *testing.T) {
 		its.Error(err)
 		its.True(errors.Is(err, lxAudit.ErrStatus))
 	})
-	t.Run("entry", func(t *testing.T) {
+	t.Run("error_status_entry", func(t *testing.T) {
 		// Testing with error for check transport
 		queue.Send(testEntries[1])
 
@@ -492,6 +503,17 @@ func TestRequestAudit(t *testing.T) {
 //	for i := 0; i < numWorker; i++ {
 //		queue.StartWorker(queue.JobChan, queue.KillChan, queue.ErrChan)
 //	}
+//
+//	t.Run("error_type", func(t *testing.T) {
+//		// This error close send routine before send job to worker
+//		testEntry := map[string]string{"foo":"bar"}
+//		queue.Send(testEntry)
+//
+//		// Wait for error over the error channel
+//		err := <-queue.ErrChan
+//		its.Error(err)
+//		its.True(errors.Is(err, lxAudit.ErrAuditEntryType))
+//	})
 //
 //	t.Run("entries", func(t *testing.T) {
 //		queue.Send(testEntries)

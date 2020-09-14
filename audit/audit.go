@@ -119,21 +119,21 @@ func (qu *queue) StartWorker(jobChan chan interface{}, killSig chan bool, errCha
 					// log error for manual insert
 					jsonJob, jsonErr := json.Marshal(j)
 					ctxLog := qu.log.WithField("func", "lxAudit.StartWorker")
+					const Msg = "error by send entries to audit"
 					if jsonErr != nil {
 						// error by convert job to json print in raw
-						ctxLog.WithField("job", j).Error("error by RequestAudit can't convert job to json")
+						ctxLog.WithField("audit", j).Error(fmt.Errorf("%s, %w", Msg, err))
 					} else {
 						// log error as encoded base64 json string for manual insert
-						qu.log.WithField("audit", string(jsonJob)).Error("error by send entries to audit")
-						//qu.log.WithField("audit", base64.StdEncoding.EncodeToString(jsonJob)).Error("error by send entries to audit")
+						ctxLog.WithField("audit", string(jsonJob)).Error(fmt.Errorf("%s, %w", Msg, err))
 					}
 				}
 				// stop before end job
 				time.Sleep(qu.throttle)
 				// chk err and send to channel
 				// important: caller has to wait for the signal
-				if _errChan != nil {
-					_errChan <- err
+				if errChan != nil {
+					errChan <- err
 				}
 			case <-killSig:
 				qu.log.Infof("shutdown worker %d with kill signal", workerNum)
@@ -165,8 +165,10 @@ func (qu *queue) IsActive() bool {
 // queue.Send(bson.M{...})
 // IBaseRepoAudit
 func (qu *queue) Send(elem interface{}) {
-	go func() {
+	go func(elem interface{}) {
 		switch val := elem.(type) {
+		default:
+			qu.JobChan <- val
 		case bson.M:
 			// Send entry to worker
 			qu.JobChan <- AuditEntry{
@@ -177,6 +179,7 @@ func (qu *queue) Send(elem interface{}) {
 				Data:       val["data"],
 			}
 		case []bson.M:
+			// Send entry to worker
 			entries := make(AuditEntries, len(val))
 			for i, e := range val {
 				entries[i] = AuditEntry{
@@ -190,7 +193,7 @@ func (qu *queue) Send(elem interface{}) {
 			// Send entries to worker
 			qu.JobChan <- entries
 		}
-	}()
+	}(elem)
 }
 
 // RequestAudit send entry or entries to audit service.

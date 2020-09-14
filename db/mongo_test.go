@@ -2563,11 +2563,6 @@ func TestMongoBaseRepo_FindOne(t *testing.T) {
 //		filter := bson.D{{"_id", testUser.Id}}
 //		its.NoError(base.FindOne(filter, &checkUser))
 //		its.Equal(testUser, checkUser)
-//
-//		// Todo check the audit_service local for entry
-//		t.Log("action", lxDb.Insert)
-//		t.Log("auditUser", auditUser)
-//		t.Log("testUser", checkUser)
 //	})
 //
 //	// Stop the worker
