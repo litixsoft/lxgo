@@ -94,7 +94,6 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 	timeout := DefaultTimeout
 	opts := &options.InsertOneOptions{}
 	var authUser interface{}
-	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -104,8 +103,6 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case *SubIdName:
-			subIdName = val.Name
 		}
 	}
 
@@ -126,8 +123,8 @@ func (repo *mongoBaseRepo) InsertOne(doc interface{}, args ...interface{}) (inte
 		}
 
 		// Add _id to data
-		if _, ok := bm[subIdName]; !ok {
-			bm[subIdName] = res.InsertedID
+		if _, ok := bm["_id"]; !ok {
+			bm["_id"] = res.InsertedID
 		}
 
 		// Send to audit
@@ -147,7 +144,6 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 	timeout := DefaultTimeout
 	opts := &options.InsertManyOptions{}
 	var authUser interface{}
-	subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -157,8 +153,6 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		case *SubIdName:
-			subIdName = val.Name
 		}
 	}
 
@@ -195,8 +189,8 @@ func (repo *mongoBaseRepo) InsertMany(docs []interface{}, args ...interface{}) (
 				}
 
 				// Check id exists and not empty
-				if _, ok := bm[subIdName]; !ok {
-					bm[subIdName] = res.InsertedID
+				if _, ok := bm["_id"]; !ok {
+					bm["_id"] = res.InsertedID
 				}
 
 				// Audit only is inserted,
@@ -352,8 +346,6 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndDeleteOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -363,10 +355,6 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
 		}
 	}
 
@@ -387,20 +375,20 @@ func (repo *mongoBaseRepo) FindOneAndDelete(filter interface{}, result interface
 	}
 
 	// Audit
-	if authUser != nil && repo.audit != nil {
-		// Start audit async
-		go func() {
-			//defer func() {
-			//	done <- true
-			//}()
-			//
-			//// Write to logger
-			//if err := repo.audit.LogEntry(Delete, authUser, result); err != nil {
-			//	log.Printf("audit delete error: %v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
-		}()
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
+		// Convert result to bson.M
+		bm, err := ToBsonMap(result)
+		if err != nil {
+			return err
+		}
+
+		// Send to audit
+		repo.audit.Send(bson.M{
+			"collection": repo.collection.Name(),
+			"action":     Delete,
+			"user":       authUser,
+			"data":       bson.M{"_id": bm["_id"]},
+		})
 	}
 
 	return nil
@@ -778,9 +766,6 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
-	subIdName := "_id"
 
 	// Check args
 	for i := 0; i < len(args); i++ {
@@ -791,12 +776,6 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-		//case chan bool:
-		//	done = val
-		//case chan error:
-		//	chanErr = val
-		case *SubIdName:
-			subIdName = val.Name
 		}
 	}
 
@@ -830,13 +809,13 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 
 		// Update docs and log entries
 		for _, val := range allDocs {
-			subFilter := bson.D{{subIdName, val[subIdName]}}
+			subFilter := bson.D{{"_id", val["_id"]}}
 			// UpdateOne
 			var afterUpdate bson.M
 			if err := updOneFn(subFilter, &afterUpdate); err != nil {
 				// Error, add subId to failedCount and Ids
 				updateManyResult.FailedCount++
-				updateManyResult.FailedIDs = append(updateManyResult.FailedIDs, subFilter.Map()[subIdName])
+				updateManyResult.FailedIDs = append(updateManyResult.FailedIDs, subFilter.Map()["_id"])
 			} else {
 				updateManyResult.MatchedCount++
 				// Is Modified use DeepEqual

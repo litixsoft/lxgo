@@ -44,11 +44,6 @@ type AuditAuth struct {
 	User interface{}
 }
 
-// UpdateManySubIdName, id name for sub doc in filter
-type SubIdName struct {
-	Name string
-}
-
 type InsertManyResult struct {
 	FailedCount int64
 	InsertedIDs []interface{}
