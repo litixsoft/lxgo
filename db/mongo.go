@@ -16,6 +16,7 @@ const (
 	DefaultTimeout = time.Second * 30
 	Insert         = "insert"
 	Update         = "update"
+	Replace        = "replace"
 	Delete         = "delete"
 )
 
@@ -400,8 +401,6 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 	timeout := DefaultTimeout
 	opts := options.FindOneAndReplace()
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -411,10 +410,6 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
 		}
 	}
 
@@ -425,7 +420,7 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 	}
 
 	// Audit only with options.After
-	if authUser != nil && repo.audit != nil {
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// Check and set options
 		if opts.ReturnDocument == nil || *opts.ReturnDocument != options.After && *opts.ReturnDocument != options.Before {
 			// Set default to after
@@ -462,19 +457,13 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 			}
 			// Compare and audit
 			if !cmp.Equal(beforeReplace, afterReplace) {
-				// Start audit async
-				go func() {
-					//defer func() {
-					//	done <- true
-					//}()
-					//
-					//// Write to logger
-					//if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
-					//	log.Printf("update audit error:%v\n", err)
-					//	chanErr <- err
-					//	return
-					//}
-				}()
+				// Send to audit
+				repo.audit.Send(bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Replace,
+					"user":       authUser,
+					"data":       afterReplace,
+				})
 			}
 		case options.Before:
 			// FindOne and replace
@@ -502,19 +491,13 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 
 			// Compare and audit
 			if !cmp.Equal(beforeReplace, afterReplace) {
-				// Start audit async
-				go func() {
-					//defer func() {
-					//	done <- true
-					//}()
-					//
-					//// Write to logger
-					//if err := repo.audit.LogEntry(Update, authUser, &afterReplace); err != nil {
-					//	log.Printf("update audit error:%v\n", err)
-					//	chanErr <- err
-					//	return
-					//}
-				}()
+				// Send to audit
+				repo.audit.Send(bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Replace,
+					"user":       authUser,
+					"data":       afterReplace,
+				})
 			}
 		}
 
