@@ -92,3 +92,18 @@ func (mr *MockIJSONSchemaMockRecorder) ValidateBind(schema, req, s interface{}) 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBind", reflect.TypeOf((*MockIJSONSchema)(nil).ValidateBind), schema, req, s)
 }
+
+// ValidateBindRaw mocks base method
+func (m *MockIJSONSchema) ValidateBindRaw(schema string, data *[]byte, s interface{}) (*lxSchema.JSONValidationResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateBindRaw", schema, data, s)
+	ret0, _ := ret[0].(*lxSchema.JSONValidationResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateBindRaw indicates an expected call of ValidateBindRaw
+func (mr *MockIJSONSchemaMockRecorder) ValidateBindRaw(schema, data, s interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBindRaw", reflect.TypeOf((*MockIJSONSchema)(nil).ValidateBindRaw), schema, data, s)
+}

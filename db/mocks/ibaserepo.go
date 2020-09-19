@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	lxDb "github.com/litixsoft/lxgo/db"
 	reflect "reflect"
+	time "time"
 )
 
 // MockIBaseRepo is a mock of IBaseRepo interface
@@ -401,28 +402,40 @@ func (m *MockIBaseRepoAudit) EXPECT() *MockIBaseRepoAuditMockRecorder {
 	return m.recorder
 }
 
-// Send mocks base method
-func (m *MockIBaseRepoAudit) Send(elem interface{}) {
+// LogEntry mocks base method
+func (m *MockIBaseRepoAudit) LogEntry(action string, user, data interface{}, timeout ...time.Duration) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Send", elem)
-}
-
-// Send indicates an expected call of Send
-func (mr *MockIBaseRepoAuditMockRecorder) Send(elem interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockIBaseRepoAudit)(nil).Send), elem)
-}
-
-// IsActive mocks base method
-func (m *MockIBaseRepoAudit) IsActive() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsActive")
-	ret0, _ := ret[0].(bool)
+	varargs := []interface{}{action, user, data}
+	for _, a := range timeout {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "LogEntry", varargs...)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// IsActive indicates an expected call of IsActive
-func (mr *MockIBaseRepoAuditMockRecorder) IsActive() *gomock.Call {
+// LogEntry indicates an expected call of LogEntry
+func (mr *MockIBaseRepoAuditMockRecorder) LogEntry(action, user, data interface{}, timeout ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsActive", reflect.TypeOf((*MockIBaseRepoAudit)(nil).IsActive))
+	varargs := append([]interface{}{action, user, data}, timeout...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntry", reflect.TypeOf((*MockIBaseRepoAudit)(nil).LogEntry), varargs...)
+}
+
+// LogEntries mocks base method
+func (m *MockIBaseRepoAudit) LogEntries(entries []interface{}, timeout ...time.Duration) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{entries}
+	for _, a := range timeout {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "LogEntries", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogEntries indicates an expected call of LogEntries
+func (mr *MockIBaseRepoAuditMockRecorder) LogEntries(entries interface{}, timeout ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{entries}, timeout...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntries", reflect.TypeOf((*MockIBaseRepoAudit)(nil).LogEntries), varargs...)
 }
