@@ -17,6 +17,11 @@ import (
 	"time"
 )
 
+type IAudit interface {
+	Send(elem interface{})
+	IsActive() bool
+}
+
 // AuditEntry transport type for service
 type AuditEntry struct {
 	Host       string      `json:"host"`

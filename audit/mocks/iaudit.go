@@ -7,7 +7,6 @@ package lxAuditMocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
-	time "time"
 )
 
 // MockIAudit is a mock of IAudit interface
@@ -33,40 +32,28 @@ func (m *MockIAudit) EXPECT() *MockIAuditMockRecorder {
 	return m.recorder
 }
 
-// LogEntry mocks base method
-func (m *MockIAudit) LogEntry(action string, user, data interface{}, timeout ...time.Duration) error {
+// Send mocks base method
+func (m *MockIAudit) Send(elem interface{}) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{action, user, data}
-	for _, a := range timeout {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "LogEntry", varargs...)
-	ret0, _ := ret[0].(error)
+	m.ctrl.Call(m, "Send", elem)
+}
+
+// Send indicates an expected call of Send
+func (mr *MockIAuditMockRecorder) Send(elem interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockIAudit)(nil).Send), elem)
+}
+
+// IsActive mocks base method
+func (m *MockIAudit) IsActive() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsActive")
+	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// LogEntry indicates an expected call of LogEntry
-func (mr *MockIAuditMockRecorder) LogEntry(action, user, data interface{}, timeout ...interface{}) *gomock.Call {
+// IsActive indicates an expected call of IsActive
+func (mr *MockIAuditMockRecorder) IsActive() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{action, user, data}, timeout...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntry", reflect.TypeOf((*MockIAudit)(nil).LogEntry), varargs...)
-}
-
-// LogEntries mocks base method
-func (m *MockIAudit) LogEntries(entries []interface{}, timeout ...time.Duration) error {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{entries}
-	for _, a := range timeout {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "LogEntries", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// LogEntries indicates an expected call of LogEntries
-func (mr *MockIAuditMockRecorder) LogEntries(entries interface{}, timeout ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{entries}, timeout...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogEntries", reflect.TypeOf((*MockIAudit)(nil).LogEntries), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsActive", reflect.TypeOf((*MockIAudit)(nil).IsActive))
 }
