@@ -16,7 +16,6 @@ const (
 	DefaultTimeout = time.Second * 30
 	Insert         = "insert"
 	Update         = "update"
-	Replace        = "replace"
 	Delete         = "delete"
 )
 
@@ -460,7 +459,7 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 				// Send to audit
 				repo.audit.Send(bson.M{
 					"collection": repo.collection.Name(),
-					"action":     Replace,
+					"action":     Update,
 					"user":       authUser,
 					"data":       afterReplace,
 				})
@@ -494,7 +493,7 @@ func (repo *mongoBaseRepo) FindOneAndReplace(filter, replacement, result interfa
 				// Send to audit
 				repo.audit.Send(bson.M{
 					"collection": repo.collection.Name(),
-					"action":     Replace,
+					"action":     Update,
 					"user":       authUser,
 					"data":       afterReplace,
 				})
@@ -524,8 +523,6 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndUpdateOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -535,10 +532,6 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
 		}
 	}
 
@@ -549,7 +542,7 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 	}
 
 	// Audit only with options.After
-	if authUser != nil && repo.audit != nil {
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// Check and set options
 		if opts.ReturnDocument == nil || *opts.ReturnDocument != options.After && *opts.ReturnDocument != options.Before {
 			// Set default to after
@@ -586,19 +579,13 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 			}
 			// Compare and audit
 			if !cmp.Equal(beforeUpdate, afterUpdate) {
-				// Start audit async
-				go func() {
-					//defer func() {
-					//	done <- true
-					//}()
-					//
-					//// Write to logger
-					//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-					//	log.Printf("update audit error:%v\n", err)
-					//	chanErr <- err
-					//	return
-					//}
-				}()
+				// Send to audit
+				repo.audit.Send(bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Update,
+					"user":       authUser,
+					"data":       afterUpdate,
+				})
 			}
 		case options.Before:
 			// FindOne and update
@@ -626,19 +613,13 @@ func (repo *mongoBaseRepo) FindOneAndUpdate(filter, update, result interface{}, 
 
 			// Compare and audit
 			if !cmp.Equal(beforeUpdate, afterUpdate) {
-				// Start audit async
-				go func() {
-					//defer func() {
-					//	done <- true
-					//}()
-					//
-					//// Write to logger
-					//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-					//	log.Printf("update audit error:%v\n", err)
-					//	chanErr <- err
-					//	return
-					//}
-				}()
+				// Send to audit
+				repo.audit.Send(bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Update,
+					"user":       authUser,
+					"data":       afterUpdate,
+				})
 			}
 		}
 
@@ -664,8 +645,6 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 	timeout := DefaultTimeout
 	opts := &options.UpdateOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -675,10 +654,6 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
 		}
 	}
 
@@ -688,7 +663,7 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 		})
 	}
 
-	if authUser != nil && repo.audit != nil {
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// When audit then save doc before update for compare
 		var beforeUpdate bson.M
 		if err := repo.FindOne(filter, &beforeUpdate); err != nil {
@@ -711,19 +686,13 @@ func (repo *mongoBaseRepo) UpdateOne(filter interface{}, update interface{}, arg
 
 		// Audit only is updated
 		if !cmp.Equal(beforeUpdate, afterUpdate) {
-			// Start audit async
-			go func() {
-				//defer func() {
-				//	done <- true
-				//}()
-				//
-				//// Write to logger
-				//if err := repo.audit.LogEntry(Update, authUser, &afterUpdate); err != nil {
-				//	log.Printf("update audit error:%v\n", err)
-				//	chanErr <- err
-				//	return
-				//}
-			}()
+			// Send to audit
+			repo.audit.Send(bson.M{
+				"collection": repo.collection.Name(),
+				"action":     Update,
+				"user":       authUser,
+				"data":       afterUpdate,
+			})
 		}
 		return nil
 	}
@@ -772,7 +741,7 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 	updateManyResult := new(UpdateManyResult)
 
 	// Audit
-	if authUser != nil && repo.audit != nil {
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// UpdateOne func for audit update many
 		updOneFn := func(subFilter bson.D, afterUpdate *bson.M) error {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -788,7 +757,7 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 		}
 
 		// Array for audits
-		var auditEntries bson.A
+		var auditEntries []bson.M
 
 		// Update docs and log entries
 		for _, val := range allDocs {
@@ -805,7 +774,11 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 				if !cmp.Equal(val, afterUpdate) {
 					updateManyResult.ModifiedCount++
 					// Audit only is modified
-					auditEntries = append(auditEntries, bson.M{"action": Update, "user": authUser, "data": afterUpdate})
+					auditEntries = append(auditEntries, bson.M{
+						"collection": repo.collection.Name(),
+						"action":     Update,
+						"user":       authUser,
+						"data":       afterUpdate})
 				}
 			}
 		}
@@ -815,19 +788,8 @@ func (repo *mongoBaseRepo) UpdateMany(filter interface{}, update interface{}, ar
 			return updateManyResult, nil
 		}
 
-		// Start audit async
-		go func() {
-			//defer func() {
-			//	done <- true
-			//}()
-			//
-			//// Write to logger
-			//if err := repo.audit.LogEntries(auditEntries); err != nil {
-			//	log.Printf("update audit error:%v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
-		}()
+		// Send to audit
+		repo.audit.Send(auditEntries)
 
 		return updateManyResult, nil
 	}
@@ -856,8 +818,6 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	timeout := DefaultTimeout
 	opts := &options.FindOneAndDeleteOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -867,10 +827,6 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
 		}
 	}
 
@@ -895,20 +851,14 @@ func (repo *mongoBaseRepo) DeleteOne(filter interface{}, args ...interface{}) er
 	}
 
 	// Audit
-	if authUser != nil && repo.audit != nil {
-		// Start audit async
-		go func() {
-			//defer func() {
-			//	done <- true
-			//}()
-			//
-			//// Write to logger
-			//if err := repo.audit.LogEntry(Delete, authUser, bson.M{"_id": beforeDelete.ID}); err != nil {
-			//	log.Printf("audit delete error: %v\n", err)
-			//	chanErr <- err
-			//	return
-			//}
-		}()
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
+		// Send to audit
+		repo.audit.Send(bson.M{
+			"collection": repo.collection.Name(),
+			"action":     Delete,
+			"user":       authUser,
+			"data":       bson.M{"_id": beforeDelete.ID},
+		})
 	}
 
 	return nil
@@ -920,9 +870,6 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 	timeout := DefaultTimeout
 	opts := &options.DeleteOptions{}
 	var authUser interface{}
-	//done := make(chan bool)
-	//chanErr := make(chan error)
-	//subIdName := "_id"
 
 	for i := 0; i < len(args); i++ {
 		switch val := args[i].(type) {
@@ -932,12 +879,6 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 			opts = val
 		case *AuditAuth:
 			authUser = val.User
-			//case chan bool:
-			//	done = val
-			//case chan error:
-			//	chanErr = val
-			//case *SubIdName:
-			//	subIdName = val.Name
 		}
 	}
 
@@ -951,9 +892,9 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 	deleteManyResult := new(DeleteManyResult)
 
 	// Audit
-	if authUser != nil && repo.audit != nil {
+	if authUser != nil && repo.audit != nil && repo.audit.IsActive() {
 		// Find all (only id field) with filter for audit
-		var allDocs []interface{}
+		var allDocs []bson.M
 		if err := repo.Find(filter, &allDocs, options.Find().SetProjection(bson.D{{"_id", 1}})); err != nil {
 			return deleteManyResult, err
 		}
@@ -971,26 +912,20 @@ func (repo *mongoBaseRepo) DeleteMany(filter interface{}, args ...interface{}) (
 
 		// Start audit async
 		if allDocs != nil && len(allDocs) > 0 {
-			go func(allDocs []interface{}) {
-				//defer func() {
-				//	done <- true
-				//}()
-				//
-				//// create audit entries
-				//var auditEntries bson.A
-				//for _, doc := range allDocs {
-				//	// data save only sub id by deleted
-				//	data := bson.M{subIdName: doc.(bson.D).Map()[subIdName]}
-				//	auditEntries = append(auditEntries, bson.M{"action": Delete, "user": authUser, "data": data})
-				//}
-				//
-				//// Write to logger
-				//if err := repo.audit.LogEntries(auditEntries); err != nil {
-				//	log.Printf("delete audit error:%v\n", err)
-				//	chanErr <- err
-				//	return
-				//}
-			}(allDocs)
+			// create audit entries
+			var auditEntries []bson.M
+			for _, doc := range allDocs {
+				// data save only sub id by deleted
+				data := bson.M{"_id": doc["_id"]}
+				auditEntries = append(auditEntries, bson.M{
+					"collection": repo.collection.Name(),
+					"action":     Delete,
+					"user":       authUser,
+					"data":       data})
+			}
+
+			// Send to audit
+			repo.audit.Send(auditEntries)
 		}
 
 		return deleteManyResult, nil
